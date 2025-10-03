@@ -63,15 +63,16 @@ const sanitizeInput = (input: string, allowSpaces: boolean = false): string => {
     .replace(/on\w+\s*=/gi, '')
     .replace(/[<>'"]/g, '')
   
-  // Se não permitir espaços, remove espaços extras
+  // Se não permitir espaços, remove todos os espaços
   if (!allowSpaces) {
     sanitized = sanitized.replace(/\s+/g, '')
   } else {
     // Se permitir espaços, apenas normaliza espaços múltiplos para um único espaço
-    sanitized = sanitized.replace(/\s+/g, ' ')
+    sanitized = sanitized.replace(/\s{2,}/g, ' ')
   }
   
-  return sanitized.trim()
+  // Não usar trim() para permitir espaços durante digitação
+  return sanitized
 }
 
 // Função para validar se input contém código malicioso
