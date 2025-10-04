@@ -27,7 +27,7 @@ export default function AdminPage() {
       const value = parseFloat(testValue) || 89.00
 
       window.gtag('event', 'conversion', {
-        'send_to': 'AW-17612041352/CnirCM_BraQbEIjZic5B',
+        'send_to': 'AW-17545933033/08VqCI_Qj5obEOnhxq5B',
         'value': value,
         'currency': 'BRL',
         'transaction_id': transactionId
