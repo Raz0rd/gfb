@@ -630,14 +630,21 @@ export default function CheckoutPage() {
     }
   }
   
-  // Iniciar polling quando PIX for gerado
+  // Enviar pending para UTMify quando PIX for gerado
   useEffect(() => {
     if (pixData && pixData.status === 'waiting_payment' && !utmifySent.pending) {
-      // Enviar status pending para UTMify apenas uma vez
       sendToUtmify('waiting_payment')
+    }
+  }, [pixData?.id, pixData?.status, utmifySent.pending])
+  
+  // Iniciar polling quando PIX for gerado
+  useEffect(() => {
+    if (pixData && pixData.status === 'waiting_payment') {
+      console.log('🔄 Iniciando polling a cada 7 segundos...')
       
       // Iniciar polling a cada 7 segundos
       const interval = setInterval(() => {
+        console.log('⏰ Verificando status do pagamento...')
         checkPaymentStatus()
       }, 7000)
       
@@ -645,21 +652,24 @@ export default function CheckoutPage() {
       
       // Limpar polling após 30 minutos
       const timeout = setTimeout(() => {
+        console.log('⏱️ Timeout de 30 minutos atingido - parando polling')
         if (interval) clearInterval(interval)
       }, 30 * 60 * 1000)
       
       return () => {
+        console.log('🛑 Limpando polling')
         clearInterval(interval)
         clearTimeout(timeout)
       }
     } else if (pixData && pixData.status === 'paid') {
       // Parar polling se pagamento foi confirmado
+      console.log('✅ Pagamento confirmado - parando polling')
       if (pollingInterval) {
         clearInterval(pollingInterval)
         setPollingInterval(null)
       }
     }
-  }, [pixData?.id, pixData?.status, utmifySent.pending])
+  }, [pixData?.id, pixData?.status])
   
   // Monitorar mudanças no status do pagamento para Google Ads
   useEffect(() => {

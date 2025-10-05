@@ -39,18 +39,31 @@ export default function TestCardPage() {
 
   // Carregar script do BlackCat
   useEffect(() => {
+    addLog('🔄 Carregando script BlackCat...')
+    
     const script = document.createElement('script')
     script.src = 'https://api.blackcatpagamentos.com/v1/js'
     script.async = true
     script.onload = () => {
       setScriptLoaded(true)
       addLog('✅ Script BlackCat carregado')
-      initializeBlackCat()
+      setTimeout(() => {
+        initializeBlackCat()
+      }, 500)
+    }
+    script.onerror = () => {
+      addLog('❌ Erro ao carregar script BlackCat')
     }
     document.head.appendChild(script)
 
     return () => {
-      document.head.removeChild(script)
+      try {
+        if (script.parentNode) {
+          document.head.removeChild(script)
+        }
+      } catch (e) {
+        console.log('Erro ao remover script:', e)
+      }
     }
   }, [])
 
@@ -62,7 +75,7 @@ export default function TestCardPage() {
       }
 
       const moduleName = window.ShieldHelper.getModuleName()
-      await window[moduleName].setPublicKey(PUBLIC_KEY)
+      await (window as any)[moduleName].setPublicKey(PUBLIC_KEY)
       addLog('✅ Public Key configurada')
 
       // Obter configurações 3DS
@@ -167,7 +180,7 @@ export default function TestCardPage() {
         }
       }
 
-      const token = await window[moduleName].encrypt(cardData)
+      const token = await (window as any)[moduleName].encrypt(cardData)
       addLog(`✅ Token gerado: ${token.substring(0, 20)}...`)
 
       // Passo 4: Criar transação
