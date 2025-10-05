@@ -454,9 +454,31 @@ export default function CheckoutPage() {
 
   // Função para reportar conversão do Google Ads
   const reportConversion = (value: number, transactionId: string) => {
-    if (typeof window !== 'undefined' && window.gtag) {
+    console.log('🎯 Tentando reportar conversão Google Ads...')
+    console.log('📊 Dados:', { value, transactionId, gtag: typeof window !== 'undefined' ? typeof window.gtag : 'undefined' })
+    
+    if (typeof window === 'undefined') {
+      console.error('❌ Window não definido')
+      return
+    }
+    
+    if (!window.gtag) {
+      console.error('❌ Google Tag (gtag) não encontrado! Verifique se o script está carregado.')
+      console.log('📝 Scripts no head:', document.head.querySelectorAll('script[src*="googletagmanager"]').length)
+      return
+    }
+    
+    try {
       const conversionValue = value / 100; // Converter centavos para reais
       
+      console.log('✅ Enviando conversão:', {
+        send_to: 'AW-17545933033/08VqCI_Qj5obEOnhxq5B',
+        value: conversionValue,
+        currency: 'BRL',
+        transaction_id: transactionId
+      })
+      
+      // Enviar conversão principal
       window.gtag('event', 'conversion', {
         'send_to': 'AW-17545933033/08VqCI_Qj5obEOnhxq5B',
         'value': conversionValue,
@@ -464,28 +486,28 @@ export default function CheckoutPage() {
         'transaction_id': transactionId
       });
       
-      console.log('🎯 Conversão Google Ads reportada:', { 
-        value: conversionValue, 
-        transactionId,
-        timestamp: new Date().toISOString()
-      });
+      console.log('✅ Conversão Google Ads enviada com sucesso!')
       
       // Marcar que conversão foi reportada
       setConversionReported(true);
       
-      // Também reportar como evento personalizado para debug
-      window.gtag('event', 'purchase_completed', {
+      // Também reportar como evento de purchase para GA4
+      window.gtag('event', 'purchase', {
+        'transaction_id': transactionId,
         'value': conversionValue,
         'currency': 'BRL',
-        'transaction_id': transactionId,
         'items': [{
+          'item_id': productName.replace(/\s+/g, '_').toLowerCase(),
           'item_name': productName,
           'price': conversionValue,
           'quantity': 1
         }]
       });
-    } else {
-      console.warn('⚠️ Google Tag não encontrado - conversão não reportada');
+      
+      console.log('✅ Evento purchase (GA4) enviado')
+      
+    } catch (error) {
+      console.error('❌ Erro ao enviar conversão:', error)
     }
   }
 
