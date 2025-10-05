@@ -18,12 +18,16 @@ const PUBLIC_KEY = "pk_0DlsAzxxNVjbUEW1k4iPISJDnT6UEDrPVZVoJ6kBA6o9kQcG"
 export default function TestCardPage() {
   const router = useRouter()
   const [amount, setAmount] = useState("10.00")
-  const [installments, setInstallments] = useState("1")
   const [loading, setLoading] = useState(false)
   const [scriptLoaded, setScriptLoaded] = useState(false)
   const [settings, setSettings] = useState<any>(null)
   const [logs, setLogs] = useState<string[]>([])
   const [transactionResult, setTransactionResult] = useState<any>(null)
+  
+  // Dados pessoais
+  const [fullName, setFullName] = useState("")
+  const [cpf, setCpf] = useState("")
+  const [birthDate, setBirthDate] = useState("")
   
   // Dados do cartão
   const [cardNumber, setCardNumber] = useState("")
@@ -150,7 +154,7 @@ export default function TestCardPage() {
       addLog('🔐 Preparando 3DS...')
       await window.ShieldHelper.prepareThreeDS({
         amount: amountInCents,
-        installments: parseInt(installments),
+        installments: 1,
         currency: currency,
       })
       addLog('✅ 3DS preparado')
@@ -189,18 +193,19 @@ export default function TestCardPage() {
         amount: amountInCents,
         currency: "BRL",
         paymentMethod: "credit_card",
-        installments: parseInt(installments),
+        installments: 1,
         card: {
           hash: token
         },
         customer: {
-          name: cardName || "Cliente Teste",
-          email: "teste@teste.com",
+          name: fullName,
+          email: `${cpf.replace(/\D/g, '')}@teste.com`,
           phone: "11999999999",
           document: {
             type: "cpf",
-            number: "12345678900"
-          }
+            number: cpf.replace(/\D/g, '')
+          },
+          birthDate: birthDate
         },
         items: [{
           title: "Teste de Pagamento",
@@ -268,33 +273,68 @@ export default function TestCardPage() {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium mb-2">Parcelas</label>
-                <Input
-                  type="number"
-                  value={installments}
-                  onChange={(e) => setInstallments(e.target.value)}
-                  placeholder="1"
-                />
+              <div className="bg-blue-50 p-3 rounded text-sm">
+                <strong>Parcelas:</strong> 1x (à vista)
+              </div>
+
+              <div className="border-t pt-4">
+                <h4 className="font-bold mb-3">Dados Pessoais</h4>
+                
+                <div>
+                  <label className="block text-sm font-medium mb-2">Nome Completo *</label>
+                  <Input
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="João da Silva"
+                    required
+                  />
+                </div>
+
+                <div className="mt-3">
+                  <label className="block text-sm font-medium mb-2">CPF *</label>
+                  <Input
+                    value={cpf}
+                    onChange={(e) => setCpf(e.target.value)}
+                    placeholder="000.000.000-00"
+                    maxLength={14}
+                    required
+                  />
+                </div>
+
+                <div className="mt-3">
+                  <label className="block text-sm font-medium mb-2">Data de Nascimento *</label>
+                  <Input
+                    type="date"
+                    value={birthDate}
+                    onChange={(e) => setBirthDate(e.target.value)}
+                    required
+                  />
+                </div>
               </div>
 
               {!settings?.hideCardForm && (
                 <>
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Número do Cartão</label>
-                    <Input
-                      value={cardNumber}
-                      onChange={(e) => setCardNumber(e.target.value)}
-                      placeholder="1234 5678 9012 3456"
-                    />
+                  <div className="border-t pt-4">
+                    <h4 className="font-bold mb-3">Dados do Cartão</h4>
+                    
+                    <div>
+                      <label className="block text-sm font-medium mb-2">Número do Cartão *</label>
+                      <Input
+                        value={cardNumber}
+                        onChange={(e) => setCardNumber(e.target.value)}
+                        placeholder="1234 5678 9012 3456"
+                        required
+                      />
+                    </div>
                   </div>
 
                   <div>
-                    <label className="block text-sm font-medium mb-2">Nome no Cartão</label>
+                    <label className="block text-sm font-medium mb-2">Nome no Cartão *</label>
                     <Input
                       value={cardName}
                       onChange={(e) => setCardName(e.target.value)}
                       placeholder="NOME COMPLETO"
+                      required
                     />
                   </div>
 
