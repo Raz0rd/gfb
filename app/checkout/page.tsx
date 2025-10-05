@@ -479,7 +479,7 @@ export default function CheckoutPage() {
       
       // Enviar conversão principal
       window.gtag('event', 'conversion', {
-        'send_to': 'AW-17545933033/08VqCI_Qj5obEOnhxq5B',
+        'send_to': process.env.NEXT_PUBLIC_GOOGLE_ADS_CONVERSION,
         'value': conversionValue,
         'currency': 'BRL',
         'transaction_id': transactionId

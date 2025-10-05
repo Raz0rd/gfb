@@ -26,7 +26,7 @@ export default function ConversaoPage() {
       const value = parseFloat(testValue) || 1.0
 
       window.gtag('event', 'conversion', {
-        'send_to': 'AW-17545933033/08VqCI_Qj5obEOnhxq5B',
+        'send_to': process.env.NEXT_PUBLIC_GOOGLE_ADS_CONVERSION,
         'value': value,
         'currency': 'BRL',
         'transaction_id': transactionId
