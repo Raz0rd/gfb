@@ -32,11 +32,23 @@ export default function SmsReportPage() {
       const fromDate = from || dataFrom
       const toDate = to || dataTo
       
-      const response = await fetch(`/api/sms-report?data_from=${fromDate}&data_to=${toDate}`)
+      console.log('📊 Buscando relatório...', { fromDate, toDate })
+      
+      const response = await fetch(`/api/sms-report?data_from=${encodeURIComponent(fromDate)}&data_to=${encodeURIComponent(toDate)}`)
+      
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`)
+      }
+      
       const data = await response.json()
+      console.log('✅ Relatório recebido:', data)
       setReport(data)
     } catch (error) {
-      console.error('Erro ao buscar relatório:', error)
+      console.error('❌ Erro ao buscar relatório:', error)
+      setReport({
+        situacao: 'ERRO',
+        descricao: error instanceof Error ? error.message : 'Erro desconhecido'
+      })
     } finally {
       setLoading(false)
     }
