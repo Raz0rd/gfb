@@ -107,7 +107,13 @@ export default function SmsReportPage() {
             {/* Resultados */}
             {report && (
               <div className="space-y-4">
-                {report.situacao === 'OK' ? (
+                {!report.descricao && !report.situacao ? (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                    <p className="text-yellow-800">
+                      ℹ️ Nenhum dado encontrado para este período. Você ainda não enviou SMS ou não há registros.
+                    </p>
+                  </div>
+                ) : report.situacao === 'OK' ? (
                   <>
                     <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                       <p className="text-green-800 font-semibold">

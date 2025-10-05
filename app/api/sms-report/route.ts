@@ -12,10 +12,22 @@ export async function GET(request: NextRequest) {
     console.log("📊 Buscando relatório SMS:", { dataFrom, dataTo })
 
     const url = `https://api.smsdev.com.br/v1/report/total?key=${SMS_API_KEY}&data_from=${dataFrom}&data_to=${dataTo}`
+    console.log("🔗 URL:", url)
     
     const response = await fetch(url, {
       method: "GET",
     })
+
+    console.log("📡 Status da resposta:", response.status)
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error("❌ Erro da API SMSDev:", errorText)
+      return NextResponse.json({ 
+        situacao: "ERRO",
+        descricao: `Erro da API: ${response.status} - ${errorText}` 
+      })
+    }
 
     const data = await response.json()
     console.log("✅ Relatório SMS:", data)
@@ -24,7 +36,8 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     console.error("❌ Erro ao buscar relatório SMS:", error)
     return NextResponse.json({ 
-      error: "Erro ao buscar relatório SMS" 
-    }, { status: 500 })
+      situacao: "ERRO",
+      descricao: error instanceof Error ? error.message : "Erro desconhecido"
+    })
   }
 }
