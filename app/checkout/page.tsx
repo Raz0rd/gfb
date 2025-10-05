@@ -150,6 +150,8 @@ export default function CheckoutPage() {
   const [selectedGasBrand, setSelectedGasBrand] = useState("")
   const [utmifySent, setUtmifySent] = useState({ pending: false, paid: false })
   const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null)
+  const [showPixDiscountModal, setShowPixDiscountModal] = useState(false)
+  const [pixDiscount, setPixDiscount] = useState(0)
 
   // Marcas de água disponíveis
   const waterBrands = [
@@ -305,15 +307,33 @@ export default function CheckoutPage() {
     e.preventDefault()
     if (customerData.name && customerData.phone && customerData.number) {
       setStep(3)
+      // Mostrar modal de desconto PIX
+      setShowPixDiscountModal(true)
     }
   }
+  
+  const handleAcceptDiscount = () => {
+    setShowPixDiscountModal(false)
+    generatePix(true)
+  }
+  
+  const handleDeclineDiscount = () => {
+    setShowPixDiscountModal(false)
+  }
 
-  const generatePix = async () => {
+  const generatePix = async (applyDiscount: boolean = false) => {
     setPixLoading(true)
     setPixError("")
 
     try {
-      const totalPrice = getTotalPrice()
+      let totalPrice = getTotalPrice()
+      
+      // Aplicar desconto de 10% se aceito
+      if (applyDiscount) {
+        const discount = Math.round(totalPrice * 0.10)
+        setPixDiscount(discount)
+        totalPrice = totalPrice - discount
+      }
       let productTitle = productName
       
       if (isWaterProduct() && selectedWaterBrand) {
@@ -1035,11 +1055,19 @@ export default function CheckoutPage() {
                       </span>
                     </div>
                   )}
-                  {kitMangueira && (
+                  {pixDiscount > 0 && (
+                    <div className="flex justify-between text-green-600">
+                      <span>Desconto PIX (10%):</span>
+                      <span className="font-bold">
+                        -{formatPrice(pixDiscount)}
+                      </span>
+                    </div>
+                  )}
+                  {(kitMangueira || pixDiscount > 0) && (
                     <div className="flex justify-between border-t pt-2 mt-2">
                       <span className="font-bold">Total:</span>
                       <span className="font-bold text-orange-500 text-lg">
-                        {formatPrice(getTotalPrice())}
+                        {formatPrice(getTotalPrice() - pixDiscount)}
                       </span>
                     </div>
                   )}
@@ -1064,14 +1092,12 @@ export default function CheckoutPage() {
 
               {!pixData ? (
                 <div className="text-center">
-                  <Button
-                    onClick={generatePix}
-                    disabled={pixLoading}
-                    className="w-full bg-green-600 hover:bg-green-700 text-white py-3 sm:py-4 text-sm sm:text-lg font-semibold flex items-center justify-center gap-2 sm:gap-3"
-                  >
-                    <Smartphone className="w-5 h-5 sm:w-6 sm:h-6" />
-                    {pixLoading ? "Gerando PIX..." : "Gerar PIX"}
-                  </Button>
+                  {pixLoading && (
+                    <div className="flex items-center justify-center gap-3 py-4">
+                      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-green-600"></div>
+                      <span className="text-green-600 font-semibold">Gerando PIX com desconto...</span>
+                    </div>
+                  )}
                   {pixError && <p className="text-red-500 text-xs sm:text-sm mt-3">{pixError}</p>}
                 </div>
               ) : (
@@ -1254,6 +1280,54 @@ export default function CheckoutPage() {
           </div>
         )}
       </div>
+      
+      {/* Modal de Desconto PIX */}
+      {showPixDiscountModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
+            <div className="text-center mb-6">
+              <div className="text-5xl mb-4">💳❌</div>
+              <h3 className="text-xl font-bold text-gray-800 mb-2">
+                Aviso Importante
+              </h3>
+              <p className="text-gray-600 text-sm leading-relaxed">
+                No momento, infelizmente, só estamos aceitando <strong>PIX</strong> por inconsistência na cobrança de cartão.
+              </p>
+            </div>
+            
+            <div className="bg-green-50 border-2 border-green-300 rounded-lg p-4 mb-6">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-2xl">🎁</span>
+                <h4 className="font-bold text-green-800">Desconto Especial!</h4>
+              </div>
+              <p className="text-green-700 text-sm">
+                Como forma de compensação, estamos oferecendo <strong className="text-lg">10% de desconto</strong> no pagamento via PIX!
+              </p>
+            </div>
+            
+            <div className="space-y-3">
+              <Button
+                onClick={handleAcceptDiscount}
+                className="w-full bg-green-600 hover:bg-green-700 text-white py-4 text-lg font-bold"
+              >
+                ✅ Aceitar Desconto e Continuar
+              </Button>
+              
+              <Button
+                onClick={handleDeclineDiscount}
+                variant="outline"
+                className="w-full border-gray-300 text-gray-700 py-4"
+              >
+                ❌ Não Aceitar
+              </Button>
+            </div>
+            
+            <p className="text-xs text-gray-500 text-center mt-4">
+              Estamos trabalhando para resolver o problema ocorrido.
+            </p>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
