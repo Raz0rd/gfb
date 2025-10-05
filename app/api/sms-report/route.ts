@@ -4,7 +4,8 @@ const SMS_API_KEY = "6YYTL0R2P8VOAJYG2JUZF5QGAEAVX28BMR0C9LPMVKDCFYXDG4ERLTZGD8P
 
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams
+    // Pegar parâmetros da URL manualmente
+    const { searchParams } = new URL(request.url)
     const dataFrom = searchParams.get('data_from') || '01/01/2024'
     const dataTo = searchParams.get('data_to') || new Date().toLocaleDateString('pt-BR')
     
