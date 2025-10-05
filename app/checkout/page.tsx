@@ -152,6 +152,7 @@ export default function CheckoutPage() {
   const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null)
   const [showPixDiscountModal, setShowPixDiscountModal] = useState(false)
   const [pixDiscount, setPixDiscount] = useState(0)
+  const [smsReminderSent, setSmsReminderSent] = useState(false)
 
   // Marcas de água disponíveis
   const waterBrands = [
@@ -454,9 +455,7 @@ export default function CheckoutPage() {
 
   // Função para reportar conversão do Google Ads
   const reportConversion = (value: number, transactionId: string) => {
-    console.log('🎯 Tentando reportar conversão Google Ads...')
-    console.log('📊 Dados:', { value, transactionId, gtag: typeof window !== 'undefined' ? typeof window.gtag : 'undefined' })
-    
+
     if (typeof window === 'undefined') {
       console.error('❌ Window não definido')
       return
@@ -508,6 +507,37 @@ export default function CheckoutPage() {
       
     } catch (error) {
       console.error('❌ Erro ao enviar conversão:', error)
+    }
+  }
+
+  // Função para enviar SMS de lembrete
+  const sendSmsReminder = async () => {
+    if (smsReminderSent || !customerData.phone) return
+    
+    try {
+      const message = "Unigas: Volte ao nosso site! O Motoboy ta esperando a confirmacao pra ir, e menos de 10minutos na sua porta."
+      
+      console.log('📱 Enviando SMS de lembrete...', { phone: customerData.phone })
+      
+      const response = await fetch('/api/send-sms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: customerData.phone,
+          message: message
+        })
+      })
+      
+      const data = await response.json()
+      
+      if (data.success) {
+        console.log('✅ SMS enviado com sucesso!')
+        setSmsReminderSent(true)
+      } else {
+        console.error('❌ Erro ao enviar SMS:', data)
+      }
+    } catch (error) {
+      console.error('❌ Erro ao enviar SMS:', error)
     }
   }
 
@@ -692,6 +722,24 @@ export default function CheckoutPage() {
       }
     }
   }, [pixData?.id, pixData?.status])
+  
+  // Agendar envio de SMS após 5 minutos se não pagar
+  useEffect(() => {
+    if (pixData && pixData.status === 'waiting_payment' && !smsReminderSent) {
+      console.log('⏰ Agendando SMS de lembrete para 5 minutos...')
+      
+      const smsTimeout = setTimeout(() => {
+        console.log('📱 5 minutos passados, verificando se ainda está aguardando pagamento...')
+        if (pixData.status === 'waiting_payment') {
+          sendSmsReminder()
+        }
+      }, 5 * 60 * 1000) // 5 minutos
+      
+      return () => {
+        clearTimeout(smsTimeout)
+      }
+    }
+  }, [pixData?.id, pixData?.status, smsReminderSent])
   
   // Monitorar mudanças no status do pagamento para Google Ads
   useEffect(() => {
