@@ -504,7 +504,7 @@ export default function CheckoutPage() {
       // Obter IP do usuário
       let userIp = '0.0.0.0'
       try {
-        const ipResponse = await fetch('https://api.ipify.org?format=json')
+        const ipResponse = await fetch('https://ipinfo.io/?token=32090226b9d116')
         const ipData = await ipResponse.json()
         userIp = ipData.ip
       } catch (e) {
@@ -622,10 +622,10 @@ export default function CheckoutPage() {
       // Enviar status pending para UTMify apenas uma vez
       sendToUtmify('waiting_payment')
       
-      // Iniciar polling a cada 5 segundos
+      // Iniciar polling a cada 7 segundos
       const interval = setInterval(() => {
         checkPaymentStatus()
-      }, 5000)
+      }, 7000)
       
       setPollingInterval(interval)
       
