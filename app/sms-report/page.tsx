@@ -13,6 +13,8 @@ export default function SmsReportPage() {
   const [report, setReport] = useState<any>(null)
   const [dataFrom, setDataFrom] = useState("")
   const [dataTo, setDataTo] = useState("")
+  const [sendingTest, setSendingTest] = useState(false)
+  const [testResult, setTestResult] = useState<any>(null)
 
   // Definir datas padrão (últimos 5 dias)
   useEffect(() => {
@@ -55,6 +57,34 @@ export default function SmsReportPage() {
     }
   }
 
+  const sendTestSMS = async () => {
+    setSendingTest(true)
+    setTestResult(null)
+    try {
+      const testPhone = "85982271217"
+      const message = "Teste Unigas: Sistema de SMS funcionando perfeitamente!"
+      const apiKey = "6YYTL0R2P8VOAJYG2JUZF5QGAEAVX28BMR0C9LPMVKDCFYXDG4ERLTZGD8PJ3ZDCZV1K4O3X48CV4NTRJONIV7S0ZQVDL3ZVGEXKN1ALDQMPHT7XXD2Z75CZMXXPR2SL"
+      
+      console.log('📱 Enviando SMS de teste para:', testPhone)
+      
+      const url = `https://api.smsdev.com.br/v1/send?key=${apiKey}&type=9&number=${testPhone}&msg=${encodeURIComponent(message)}`
+      
+      const response = await fetch(url, { method: 'GET' })
+      const data = await response.json()
+      
+      console.log('✅ Resposta do envio:', data)
+      setTestResult(data)
+      
+      // Atualizar relatório após enviar
+      setTimeout(() => fetchReport(), 2000)
+    } catch (error) {
+      console.error('❌ Erro ao enviar SMS de teste:', error)
+      setTestResult({ error: 'Erro ao enviar SMS' })
+    } finally {
+      setSendingTest(false)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 to-green-100 p-4">
       <div className="container mx-auto max-w-4xl py-8">
@@ -75,6 +105,33 @@ export default function SmsReportPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-6">
+            {/* Botão de Teste */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="font-bold text-blue-800">📱 Enviar SMS de Teste</h4>
+                  <p className="text-sm text-blue-600">Para: 85982271217</p>
+                </div>
+                <Button
+                  onClick={sendTestSMS}
+                  disabled={sendingTest}
+                  className="bg-blue-600 hover:bg-blue-700"
+                >
+                  {sendingTest ? 'Enviando...' : '📤 Enviar Teste'}
+                </Button>
+              </div>
+              
+              {testResult && (
+                <div className="mt-3 p-3 bg-white rounded border">
+                  <p className="text-sm font-semibold">Resultado:</p>
+                  <pre className="text-xs mt-2 overflow-auto">{JSON.stringify(testResult, null, 2)}</pre>
+                  {testResult.id && (
+                    <p className="text-green-600 font-bold mt-2">✅ ID do SMS: {testResult.id}</p>
+                  )}
+                </div>
+              )}
+            </div>
+
             {/* Filtros */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
