@@ -6,8 +6,14 @@ export async function GET(request: NextRequest) {
   try {
     // Pegar parâmetros da URL manualmente
     const { searchParams } = new URL(request.url)
-    const dataFrom = searchParams.get('data_from') || '01/01/2024'
-    const dataTo = searchParams.get('data_to') || new Date().toLocaleDateString('pt-BR')
+    
+    // Data padrão: 5 dias atrás até hoje
+    const hoje = new Date()
+    const cincoDiasAtras = new Date()
+    cincoDiasAtras.setDate(hoje.getDate() - 5)
+    
+    const dataFrom = searchParams.get('data_from') || cincoDiasAtras.toLocaleDateString('pt-BR')
+    const dataTo = searchParams.get('data_to') || hoje.toLocaleDateString('pt-BR')
     
     console.log("📊 Buscando relatório SMS:", { dataFrom, dataTo })
 

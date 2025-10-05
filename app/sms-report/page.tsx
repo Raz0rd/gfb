@@ -14,16 +14,17 @@ export default function SmsReportPage() {
   const [dataFrom, setDataFrom] = useState("")
   const [dataTo, setDataTo] = useState("")
 
-  // Definir datas padrão (último mês)
+  // Definir datas padrão (últimos 5 dias)
   useEffect(() => {
     const today = new Date()
-    const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, today.getDate())
+    const fiveDaysAgo = new Date()
+    fiveDaysAgo.setDate(today.getDate() - 5)
     
-    setDataFrom(lastMonth.toLocaleDateString('pt-BR'))
+    setDataFrom(fiveDaysAgo.toLocaleDateString('pt-BR'))
     setDataTo(today.toLocaleDateString('pt-BR'))
     
     // Carregar relatório automaticamente
-    fetchReport(lastMonth.toLocaleDateString('pt-BR'), today.toLocaleDateString('pt-BR'))
+    fetchReport(fiveDaysAgo.toLocaleDateString('pt-BR'), today.toLocaleDateString('pt-BR'))
   }, [])
 
   const fetchReport = async (from?: string, to?: string) => {

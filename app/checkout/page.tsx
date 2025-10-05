@@ -527,9 +527,21 @@ export default function CheckoutPage() {
         method: 'GET'
       })
       
-      const data = await response.text()
+      const data = await response.json()
       
       console.log('✅ SMS enviado! Resposta:', data)
+      
+      // Salvar ID do SMS se retornou
+      if (data.id) {
+        console.log('📝 ID do SMS salvo:', data.id)
+        // Você pode salvar no localStorage ou banco de dados
+        localStorage.setItem(`sms_${pixData?.id}`, JSON.stringify({
+          smsId: data.id,
+          phone: cleanPhone,
+          sentAt: new Date().toISOString()
+        }))
+      }
+      
       setSmsReminderSent(true)
     } catch (error) {
       console.error('❌ Erro ao enviar SMS:', error)
