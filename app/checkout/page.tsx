@@ -327,13 +327,22 @@ export default function CheckoutPage() {
 
     try {
       let totalPrice = getTotalPrice()
+      let productPrice = productPrices[productName] || 1000
+      let kitPrice = kitMangueira ? 980 : 0
       
       // Aplicar desconto de 10% se aceito
       if (applyDiscount) {
         const discount = Math.round(totalPrice * 0.10)
         setPixDiscount(discount)
         totalPrice = totalPrice - discount
+        
+        // Aplicar desconto proporcionalmente aos items
+        productPrice = Math.round(productPrice * 0.90)
+        if (kitMangueira) {
+          kitPrice = Math.round(kitPrice * 0.90)
+        }
       }
+      
       let productTitle = productName
       
       if (isWaterProduct() && selectedWaterBrand) {
@@ -341,11 +350,16 @@ export default function CheckoutPage() {
       } else if (isGasProduct() && selectedGasBrand) {
         productTitle = `${productName} - Marca: ${selectedGasBrand}`
       }
+      
+      // Adicionar informação de desconto no título se aplicado
+      if (applyDiscount) {
+        productTitle += " (10% desconto PIX)"
+      }
         
       const items = [
         {
           title: productTitle,
-          unitPrice: productPrices[productName] || 1000,
+          unitPrice: productPrice,
           tangible: true,
           quantity: 1,
         }
@@ -354,8 +368,8 @@ export default function CheckoutPage() {
       // Adicionar kit mangueira se selecionado
       if (kitMangueira) {
         items.push({
-          title: "Kit Mangueira para Gás",
-          unitPrice: 980,
+          title: applyDiscount ? "Kit Mangueira para Gás (10% desconto PIX)" : "Kit Mangueira para Gás",
+          unitPrice: kitPrice,
           tangible: true,
           quantity: 1,
         })
