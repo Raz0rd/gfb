@@ -516,26 +516,21 @@ export default function CheckoutPage() {
     
     try {
       const message = "Unigas: Volte ao nosso site! O Motoboy ta esperando a confirmacao pra ir, e menos de 10minutos na sua porta."
+      const cleanPhone = customerData.phone.replace(/\D/g, '')
+      const apiKey = "6YYTL0R2P8VOAJYG2JUZF5QGAEAVX28BMR0C9LPMVKDCFYXDG4ERLTZGD8PJ3ZDCZV1K4O3X48CV4NTRJONIV7S0ZQVDL3ZVGEXKN1ALDQMPHT7XXD2Z75CZMXXPR2SL"
       
-      console.log('📱 Enviando SMS de lembrete...', { phone: customerData.phone })
+      console.log('📱 Enviando SMS de lembrete...', { phone: cleanPhone })
       
-      const response = await fetch('/api/send-sms', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          phone: customerData.phone,
-          message: message
-        })
+      const url = `https://api.smsdev.com.br/v1/send?key=${apiKey}&type=9&number=${cleanPhone}&msg=${encodeURIComponent(message)}`
+      
+      const response = await fetch(url, {
+        method: 'GET'
       })
       
-      const data = await response.json()
+      const data = await response.text()
       
-      if (data.success) {
-        console.log('✅ SMS enviado com sucesso!')
-        setSmsReminderSent(true)
-      } else {
-        console.error('❌ Erro ao enviar SMS:', data)
-      }
+      console.log('✅ SMS enviado! Resposta:', data)
+      setSmsReminderSent(true)
     } catch (error) {
       console.error('❌ Erro ao enviar SMS:', error)
     }
