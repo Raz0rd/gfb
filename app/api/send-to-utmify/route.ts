@@ -9,7 +9,7 @@ export async function POST(request: NextRequest) {
     const response = await fetch("https://api.utmify.com.br/api-credentials/orders", {
       method: "POST",
       headers: {
-        "x-api-token": "QQmeGMrZNdQ8IC4Hx5MV3hYH1l3SXPcQglIv",
+        "x-api-token": "6q5U6LSdt5Weyl29TPV9ui7jgdLuUtH3X0eo",
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
