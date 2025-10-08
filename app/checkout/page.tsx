@@ -1232,7 +1232,7 @@ export default function CheckoutPage() {
               </div>
 
               {/* Elementos de Segurança e Urgência */}
-              {!pixData && (
+              {!pixData || (pixData && pixData.status === 'waiting_payment') ? (
                 <div className="space-y-4">
                   {/* Segurança do Pagamento */}
                   <div className="rounded-md border p-3 bg-green-50 text-sm text-gray-700">
@@ -1269,7 +1269,7 @@ export default function CheckoutPage() {
                     </div>
                   </div>
                 </div>
-              )}
+              ) : null}
 
               {!pixData ? (
                 <div className="text-center">
@@ -1464,32 +1464,35 @@ export default function CheckoutPage() {
       
       {/* Modal de Desconto PIX */}
       {showPixDiscountModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
-            <div className="text-center mb-6">
-              <div className="text-5xl mb-4">💳❌</div>
-              <h3 className="text-xl font-bold text-gray-800 mb-2">
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-gray-100">
+            <div className="text-center mb-4">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-50 rounded-full mb-3">
+                <span className="text-3xl">💳</span>
+                <span className="text-3xl text-red-500 ml-1">✕</span>
+              </div>
+              <h3 className="text-lg font-bold text-gray-800 mb-2">
                 Aviso Importante
               </h3>
               <p className="text-gray-600 text-sm leading-relaxed">
-                No momento, infelizmente, só estamos aceitando <strong>PIX</strong> por inconsistência na cobrança de cartão.
+                No momento, infelizmente, só estamos aceitando <strong className="text-blue-600">PIX</strong> por inconsistência na cobrança de cartão.
               </p>
             </div>
             
-            <div className="bg-green-50 border-2 border-green-300 rounded-lg p-4 mb-6">
+            <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4 mb-4">
               <div className="flex items-center gap-2 mb-2">
                 <span className="text-2xl">🎁</span>
-                <h4 className="font-bold text-green-800">Desconto Especial!</h4>
+                <h4 className="font-bold text-green-800 text-sm">Desconto Especial!</h4>
               </div>
-              <p className="text-green-700 text-sm">
-                Como forma de compensação, estamos oferecendo <strong className="text-lg">10% de desconto</strong> no pagamento via PIX!
+              <p className="text-green-700 text-sm leading-relaxed">
+                Como forma de compensação, estamos oferecendo <strong className="text-base text-green-600">10% de desconto</strong> no pagamento via PIX!
               </p>
             </div>
             
-            <div className="space-y-3">
+            <div className="space-y-2">
               <Button
                 onClick={handleAcceptDiscount}
-                className="w-full bg-green-600 hover:bg-green-700 text-white py-4 text-lg font-bold"
+                className="w-full bg-green-600 hover:bg-green-700 text-white py-3 text-base font-semibold rounded-xl shadow-md hover:shadow-lg transition-all"
               >
                 ✅ Aceitar Desconto e Continuar
               </Button>
@@ -1497,13 +1500,13 @@ export default function CheckoutPage() {
               <Button
                 onClick={handleDeclineDiscount}
                 variant="outline"
-                className="w-full border-gray-300 text-gray-700 py-4"
+                className="w-full border-gray-300 text-gray-600 hover:bg-gray-50 py-3 rounded-xl"
               >
-                ❌ Não Aceitar
+                ✕ Não Aceitar
               </Button>
             </div>
             
-            <p className="text-xs text-gray-500 text-center mt-4">
+            <p className="text-xs text-gray-400 text-center mt-3">
               Estamos trabalhando para resolver o problema ocorrido.
             </p>
           </div>
