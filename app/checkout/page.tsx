@@ -406,6 +406,9 @@ export default function CheckoutPage() {
 
       const pixResponse: PixResponse = await response.json()
       setPixData(pixResponse)
+      
+      // Reportar início de checkout para Google Ads
+      reportCheckoutStart(totalPrice)
     } catch (err) {
       setPixError("Erro ao gerar PIX. Tente novamente.")
       console.error("Erro PIX:", err)
@@ -454,9 +457,39 @@ export default function CheckoutPage() {
     return basePrice + kitPrice
   }
 
-  // Função para reportar conversão do Google Ads
-  const reportConversion = (value: number, transactionId: string) => {
+  // Função para reportar início de checkout (quando gera PIX)
+  const reportCheckoutStart = (value: number) => {
+    if (typeof window === 'undefined' || !window.gtag) {
+      console.error('❌ Google Tag não encontrado para início de checkout')
+      return
+    }
+    
+    try {
+      const conversionValue = value / 100
+      
+      console.log('🛒 Enviando conversão de início de checkout:', {
+        send_to: 'AW-17545933033/dfuaCPPBjakbEOnhxq5B',
+        value: conversionValue,
+        currency: 'BRL'
+      })
+      
+      window.gtag('event', 'conversion', {
+        'send_to': 'AW-17545933033/dfuaCPPBjakbEOnhxq5B',
+        'value': conversionValue,
+        'currency': 'BRL'
+      })
+      
+      console.log('✅ Conversão de início de checkout enviada!')
+    } catch (error) {
+      console.error('❌ Erro ao enviar conversão de início de checkout:', error)
+    }
+  }
 
+  // Função para reportar conversão do Google Ads (quando paga)
+  const reportConversion = (value: number, transactionId: string) => {
+    console.log('🎯 Tentando reportar conversão Google Ads...')
+    console.log('📊 Dados:', { value, transactionId, gtag: typeof window !== 'undefined' ? typeof window.gtag : 'undefined' })
+    
     if (typeof window === 'undefined') {
       console.error('❌ Window não definido')
       return
@@ -1215,8 +1248,8 @@ export default function CheckoutPage() {
 
                   {/* CNPJ e Razão Social */}
                   <div className="text-center text-xs text-gray-600 border-t border-b py-2">
-                    <p><strong>Pagamento para:</strong> UNIGAS DISTRIBUIDORA LTDA</p>
-                    <p>CNPJ: 00.000.000/0001-00</p>
+                    <p><strong>Pagamento para:</strong> CENTRAL DE TRANSACOES IMEDIATAS</p>
+                    <p>CNPJ: 60.941.690/0001-05</p>
                   </div>
 
                   {/* Timer de Urgência */}
