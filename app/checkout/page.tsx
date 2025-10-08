@@ -146,8 +146,9 @@ export default function CheckoutPage() {
   const [showToast, setShowToast] = useState(false)
   const [currentToast, setCurrentToast] = useState("")
   const [conversionReported, setConversionReported] = useState(false)
-  const [selectedWaterBrand, setSelectedWaterBrand] = useState("")
-  const [selectedGasBrand, setSelectedGasBrand] = useState("")
+  const [selectedWaterBrand, setSelectedWaterBrand] = useState("Naturágua")
+  const [selectedGasBrand, setSelectedGasBrand] = useState("Liquigas")
+  const [pixTimer, setPixTimer] = useState(900) // 15 minutos em segundos
   const [utmifySent, setUtmifySent] = useState({ pending: false, paid: false })
   const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null)
   const [showPixDiscountModal, setShowPixDiscountModal] = useState(false)
@@ -756,6 +757,23 @@ export default function CheckoutPage() {
     }
   }, [pixData?.status, productName, kitMangueira, conversionReported])
 
+  // Timer de 15 minutos para desconto PIX
+  useEffect(() => {
+    if (step === 3 && !pixData && pixTimer > 0) {
+      const timer = setInterval(() => {
+        setPixTimer(prev => prev > 0 ? prev - 1 : 0)
+      }, 1000)
+      return () => clearInterval(timer)
+    }
+  }, [step, pixData, pixTimer])
+
+  // Formatar timer
+  const formatTimer = (seconds: number) => {
+    const mins = Math.floor(seconds / 60)
+    const secs = seconds % 60
+    return `${mins}:${secs.toString().padStart(2, '0')}`
+  }
+
   return (
     <div className="min-h-screen bg-gray-50">
       {/* Header */}
@@ -893,7 +911,7 @@ export default function CheckoutPage() {
             {/* Customer Data Form */}
             <Card>
               <CardHeader className="pb-3 sm:pb-4">
-                <CardTitle className="text-base sm:text-lg">Complete seus dados</CardTitle>
+                <CardTitle className="text-base sm:text-lg">Confirme seus dados para entrega</CardTitle>
               </CardHeader>
               <CardContent className="pt-0">
                 <form onSubmit={handleCustomerDataSubmit} className="space-y-3 sm:space-y-4">
@@ -956,8 +974,8 @@ export default function CheckoutPage() {
                       />
                     </div>
                     <div>
-                      <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
-                        Complemento
+                      <label className="block text-xs sm:text-sm font-medium text-gray-500 mb-1 sm:mb-2">
+                        Complemento (opcional)
                       </label>
                       <Input
                         type="text"
@@ -977,29 +995,19 @@ export default function CheckoutPage() {
                   {/* Seleção de Marca de Gás */}
                   {isGasProduct() && (
                     <div className="border border-orange-200 rounded-lg p-4 bg-orange-50">
-                      <h4 className="font-bold text-orange-800 text-sm mb-3">🔥 Escolha sua marca de gás preferida:</h4>
+                      <h4 className="font-bold text-orange-800 text-sm mb-2">🔥 Marca pré-selecionada: <span className="text-green-600">Liquigas</span> (Melhor preço do dia)</h4>
+                      <p className="text-xs text-gray-600 mb-3">Você pode alterar se preferir outra marca:</p>
                       <select
                         value={selectedGasBrand}
                         onChange={(e) => setSelectedGasBrand(e.target.value)}
-                        className={`w-full p-2 border rounded-lg text-sm focus:ring-2 ${
-                          selectedGasBrand 
-                            ? 'border-orange-300 focus:ring-orange-500 focus:border-orange-500' 
-                            : 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                        }`}
-                        required
+                        className="w-full p-2 border border-orange-300 rounded-lg text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
                       >
-                        <option value="">Selecione uma marca...</option>
                         {gasBrands.map((brand) => (
                           <option key={brand} value={brand}>
                             {brand}
                           </option>
                         ))}
                       </select>
-                      {isGasProduct() && !selectedGasBrand && (
-                        <p className="text-xs text-red-600 mt-1">
-                          ⚠️ Por favor, selecione uma marca de gás para continuar
-                        </p>
-                      )}
                       <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
                         <p className="text-xs text-green-800 leading-relaxed mb-2">
                           <strong>📞 Nosso motoboy irá ligar para confirmar a escolha do cliente, não se preocupe que não terá taxas, é bem prático e rápido.</strong>
@@ -1017,29 +1025,19 @@ export default function CheckoutPage() {
                   {/* Seleção de Marca de Água */}
                   {isWaterProduct() && (
                     <div className="border border-blue-200 rounded-lg p-4 bg-blue-50">
-                      <h4 className="font-bold text-blue-800 text-sm mb-3">💧 Escolha sua marca de água preferida:</h4>
+                      <h4 className="font-bold text-blue-800 text-sm mb-2">💧 Marca pré-selecionada: <span className="text-green-600">Naturágua</span> (Melhor preço do dia)</h4>
+                      <p className="text-xs text-gray-600 mb-3">Você pode alterar se preferir outra marca:</p>
                       <select
                         value={selectedWaterBrand}
                         onChange={(e) => setSelectedWaterBrand(e.target.value)}
-                        className={`w-full p-2 border rounded-lg text-sm focus:ring-2 ${
-                          selectedWaterBrand 
-                            ? 'border-blue-300 focus:ring-blue-500 focus:border-blue-500' 
-                            : 'border-red-300 focus:ring-red-500 focus:border-red-500'
-                        }`}
-                        required
+                        className="w-full p-2 border border-blue-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                       >
-                        <option value="">Selecione uma marca...</option>
                         {waterBrands.map((brand) => (
                           <option key={brand} value={brand}>
                             {brand}
                           </option>
                         ))}
                       </select>
-                      {isWaterProduct() && !selectedWaterBrand && (
-                        <p className="text-xs text-red-600 mt-1">
-                          ⚠️ Por favor, selecione uma marca de água para continuar
-                        </p>
-                      )}
                       <div className="mt-3 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                         <p className="text-xs text-yellow-800 leading-relaxed">
                           <strong>📞 Se você quer outra marca que não esteja aqui, não se preocupa que nosso motoboy vai te ligar e confirmar o pedido assim que seu pagamento for aprovado ok?</strong>
@@ -1093,15 +1091,30 @@ export default function CheckoutPage() {
                     </div>
                   )}
 
+                  {/* Depoimento antes do botão */}
+                  <div className="bg-yellow-50 border-l-4 border-yellow-400 p-3 rounded">
+                    <div className="flex items-start gap-2">
+                      <div className="flex-shrink-0">
+                        <div className="flex text-yellow-500 text-xs">
+                          ⭐⭐⭐⭐⭐
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-700 italic leading-relaxed">
+                          "Paguei e em 15 min o gás chegou. Super rápido!"
+                        </p>
+                        <p className="text-xs text-gray-500 mt-1">— Maria S.</p>
+                      </div>
+                    </div>
+                  </div>
+
                   <Button
                     type="submit"
                     className="w-full bg-orange-500 hover:bg-orange-600 text-white py-2 sm:py-3 text-sm sm:text-base"
                     disabled={
                       !customerData.name || 
                       !customerData.phone || 
-                      !customerData.number ||
-                      (isWaterProduct() && !selectedWaterBrand) ||
-                      (isGasProduct() && !selectedGasBrand)
+                      !customerData.number
                     }
                   >
                     Continuar para Pagamento
@@ -1190,6 +1203,46 @@ export default function CheckoutPage() {
                   </div>
                 </div>
               </div>
+
+              {/* Elementos de Segurança e Urgência */}
+              {!pixData && (
+                <div className="space-y-4">
+                  {/* Segurança do Pagamento */}
+                  <div className="rounded-md border p-3 bg-green-50 text-sm text-gray-700">
+                    <p className="mb-1">✅ <strong>Pagamento seguro via Pix (Banco Central)</strong></p>
+                    <p>⚡ Confirmação imediata — o motoboy recebe seu pedido automaticamente.</p>
+                  </div>
+
+                  {/* CNPJ e Razão Social */}
+                  <div className="text-center text-xs text-gray-600 border-t border-b py-2">
+                    <p><strong>Pagamento para:</strong> UNIGAS DISTRIBUIDORA LTDA</p>
+                    <p>CNPJ: 00.000.000/0001-00</p>
+                  </div>
+
+                  {/* Timer de Urgência */}
+                  <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-center">
+                    <p className="text-red-600 font-semibold text-sm mb-1">
+                      💥 Desconto Pix ativo por <span className="text-lg font-bold">{formatTimer(pixTimer)}</span> minutos
+                    </p>
+                    <p className="text-xs text-red-500">
+                      Pagamento rápido garante entrega em até 30 min.
+                    </p>
+                  </div>
+
+                  {/* Depoimento */}
+                  <div className="bg-yellow-50 border-l-4 border-yellow-400 p-3 rounded">
+                    <div className="flex items-start gap-2">
+                      <div className="flex-shrink-0">
+                        <div className="flex text-yellow-500 text-xs">⭐⭐⭐⭐⭐</div>
+                      </div>
+                      <div>
+                        <p className="text-xs text-gray-700 italic">"Chegou em 12 minutos! Muito rápido e prático."</p>
+                        <p className="text-xs text-gray-500 mt-1">— João P.</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {!pixData ? (
                 <div className="text-center">
