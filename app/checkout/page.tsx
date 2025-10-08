@@ -408,7 +408,7 @@ export default function CheckoutPage() {
       setPixData(pixResponse)
       
       // Reportar início de checkout para Google Ads
-      reportCheckoutStart(totalPrice)
+      reportCheckoutStart()
     } catch (err) {
       setPixError("Erro ao gerar PIX. Tente novamente.")
       console.error("Erro PIX:", err)
@@ -458,25 +458,19 @@ export default function CheckoutPage() {
   }
 
   // Função para reportar início de checkout (quando gera PIX)
-  const reportCheckoutStart = (value: number) => {
+  const reportCheckoutStart = () => {
     if (typeof window === 'undefined' || !window.gtag) {
       console.error('❌ Google Tag não encontrado para início de checkout')
       return
     }
     
     try {
-      const conversionValue = value / 100
-      
       console.log('🛒 Enviando conversão de início de checkout:', {
-        send_to: 'AW-17545933033/dfuaCPPBjakbEOnhxq5B',
-        value: conversionValue,
-        currency: 'BRL'
+        send_to: 'AW-17545933033/dfuaCPPBjakbEOnhxq5B'
       })
       
       window.gtag('event', 'conversion', {
-        'send_to': 'AW-17545933033/dfuaCPPBjakbEOnhxq5B',
-        'value': conversionValue,
-        'currency': 'BRL'
+        'send_to': 'AW-17545933033/dfuaCPPBjakbEOnhxq5B'
       })
       
       console.log('✅ Conversão de início de checkout enviada!')
