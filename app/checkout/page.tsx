@@ -116,16 +116,16 @@ export default function CheckoutPage() {
   }, [])
 
   const productPrices: { [key: string]: number } = {
-    "Gás de cozinha 13 kg (P13)": 7120, // R$ 71,20 em centavos (era R$ 89,00 - 20%)
-    "Gás de Cozinha 13kg": 7120, // R$ 71,20 em centavos (compatibilidade)
-    "Água Mineral Indaiá 20L": 960, // R$ 9,60 em centavos (era R$ 12,00 - 20%)
-    "Garrafão de água Mineral 20L": 1496, // R$ 14,96 em centavos (era R$ 18,70 - 20%)
-    "Água Mineral Serragrande 20L": 960, // R$ 9,60 em centavos (era R$ 12,00 - 20%)
-    "Botijão de Gás 8kg P8": 6000, // R$ 60,00 em centavos (era R$ 75,00 - 20%)
-    "Botijão de Gás 8kg": 6000, // R$ 60,00 em centavos (compatibilidade)
-    "3 Garrafões de Água 20L": 3976, // R$ 39,76 em centavos (era R$ 49,70 - 20%)
-    "Combo 2 Botijões de Gás 13kg": 13600, // R$ 136,00 em centavos (era R$ 170,00 - 20%)
-    "Combo Gás + Garrafão": 7920, // R$ 79,20 em centavos (era R$ 99,00 - 20%)
+    "Gás de cozinha 13 kg (P13)": 8900, // R$ 89,00 em centavos (aumento de 25%)
+    "Gás de Cozinha 13kg": 8900, // R$ 89,00 em centavos (compatibilidade)
+    "Água Mineral Indaiá 20L": 1200, // R$ 12,00 em centavos (aumento de 25%)
+    "Garrafão de água Mineral 20L": 1870, // R$ 18,70 em centavos (aumento de 25%)
+    "Água Mineral Serragrande 20L": 1200, // R$ 12,00 em centavos (aumento de 25%)
+    "Botijão de Gás 8kg P8": 7500, // R$ 75,00 em centavos (aumento de 25%)
+    "Botijão de Gás 8kg": 7500, // R$ 75,00 em centavos (compatibilidade)
+    "3 Garrafões de Água 20L": 4970, // R$ 49,70 em centavos (aumento de 25%)
+    "Combo 2 Botijões de Gás 13kg": 17000, // R$ 170,00 em centavos (aumento de 25%)
+    "Combo Gás + Garrafão": 9900, // R$ 99,00 em centavos (aumento de 25%)
   }
 
   const [addressData, setAddressData] = useState<AddressData | null>(null)
@@ -1327,8 +1327,8 @@ export default function CheckoutPage() {
 
                   {/* CNPJ e Razão Social */}
                   <div className="text-center text-xs text-gray-600 border-t border-b py-2">
-                    <p><strong>Pagamento para:</strong> VENDAS ONLINE STORE LTDA</p>
-                    <p>CNPJ: 27.945.891/0001-05</p>
+                    <p><strong>Pagamento para:</strong> PAY PAGAMENTOS LTDA</p>
+                    <p>CNPJ: 62.745.712/0001-97</p>
                   </div>
 
                   {/* Timer de Urgência */}
