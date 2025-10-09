@@ -379,20 +379,36 @@ export default function CheckoutPage() {
 
       const requestData = {
         amount: totalPrice,
-        paymentMethod: "pix",
-        items: items,
+        currency: "BRL",
+        paymentMethod: "PIX",
         customer: {
           name: customerData.name,
-          email: `${customerData.phone.replace(/\D/g, "")}@cliente.com`, // Email fictício baseado no telefone
+          email: `${customerData.phone.replace(/\D/g, "")}@cliente.com`,
           phone: customerData.phone.replace(/\D/g, ""),
           document: {
-            number: "00000000000", // CPF fictício - você pode adicionar um campo para isso
-            type: "cpf",
+            number: "00000000000",
+            type: "CPF",
+          },
+          address: {
+            street: addressData?.logradouro || "",
+            streetNumber: customerData.number,
+            complement: customerData.complement || "",
+            zipCode: addressData?.cep.replace(/\D/g, "") || "",
+            neighborhood: addressData?.bairro || "",
+            city: addressData?.localidade || "",
+            state: addressData?.uf || "",
+            country: "br",
           },
         },
+        items: items,
+        pix: {
+          expiresInDays: 1,
+        },
+        traceable: true,
+        ip: "0.0.0.0",
       }
 
-      const response = await fetch("/api/generate-pix", {
+      const response = await fetch("/api/ativo-transaction", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -684,7 +700,7 @@ export default function CheckoutPage() {
     try {
       // Adicionar timestamp para evitar cache
       const timestamp = new Date().getTime()
-      const response = await fetch(`/api/check-payment?id=${pixData.id}&_t=${timestamp}`, {
+      const response = await fetch(`/api/check-ativo-payment?id=${pixData.id}&_t=${timestamp}`, {
         cache: 'no-store',
         headers: {
           'Cache-Control': 'no-cache'
@@ -692,15 +708,19 @@ export default function CheckoutPage() {
       })
       
       if (response.ok) {
-        const data = await response.json()
+        const result = await response.json()
         
+        // Extrair dados da resposta Ativo B2B
+        const data = result.data || result
+        const status = data.status?.toLowerCase() === 'paid' ? 'paid' : 
+                      data.status?.toLowerCase() === 'waiting_payment' ? 'waiting_payment' : 
+                      data.status?.toLowerCase()
         
         // Atualizar status se mudou
-        if (data.status !== pixData.status) {
+        if (status && status !== pixData.status) {
           
           // Se pagamento foi aprovado, enviar para UTMify ANTES de atualizar estado
-          if (data.status === 'paid' && !utmifySent.paid) {
-            // Usar os dados atualizados da API BlackCat
+          if (status === 'paid' && !utmifySent.paid) {
             const updatedPixData = { ...pixData, status: 'paid' }
             setPixData(updatedPixData)
             
@@ -708,7 +728,7 @@ export default function CheckoutPage() {
             await sendToUtmify('paid')
           } else {
             // Apenas atualizar o estado para outros status
-            setPixData(prev => prev ? { ...prev, status: data.status } : null)
+            setPixData(prev => prev ? { ...prev, status: status } : null)
           }
         }
       }
@@ -1242,8 +1262,8 @@ export default function CheckoutPage() {
 
                   {/* CNPJ e Razão Social */}
                   <div className="text-center text-xs text-gray-600 border-t border-b py-2">
-                    <p><strong>Pagamento para:</strong> CENTRAL DE TRANSACOES IMEDIATAS</p>
-                    <p>CNPJ: 60.941.690/0001-05</p>
+                    <p><strong>Pagamento para:</strong> VENDAS ONLINE STORE LTDA</p>
+                    <p>CNPJ: 27.945.891/0001-05</p>
                   </div>
 
                   {/* Timer de Urgência */}
