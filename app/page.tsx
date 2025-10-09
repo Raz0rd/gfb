@@ -638,7 +638,7 @@ export default function HomePage() {
             {/* COMBOS PRIMEIRO - MAIS VENDIDOS */}
             <ProductCard
               name="Combo 2 Botijões de Gás 13kg"
-              price="R$ 136,00"
+              price="R$ 170,00"
               image="/images/combo 2 botijao 13kg.png"
               alt="Combo 2 Botijões de Gás 13kg"
               description="Combo promocional com 2 botijões de gás P13. Economia garantida para sua casa com desconto especial na compra em conjunto."
@@ -648,7 +648,7 @@ export default function HomePage() {
 
             <ProductCard
               name="Combo Gás + Garrafão"
-              price="R$ 79,20"
+              price="R$ 99,00"
               image="/images/comboGas_garrafao.png"
               alt="Combo Gás + Garrafão"
               description="Combo completo com 1 botijão de gás 13kg + 1 garrafão de água 20L. Praticidade e economia em um só pedido."
@@ -658,7 +658,7 @@ export default function HomePage() {
 
             <ProductCard
               name="3 Garrafões de Água 20L"
-              price="R$ 39,76"
+              price="R$ 49,70"
               image="/images/3garrafoes.png"
               alt="3 Garrafões de Água 20L"
               description="Combo econômico com 3 garrafões de água mineral de 20 litros. Ideal para famílias grandes, empresas e estabelecimentos comerciais."
@@ -669,7 +669,7 @@ export default function HomePage() {
             {/* PRODUTOS INDIVIDUAIS */}
             <ProductCard
               name="Gás de cozinha 13 kg (P13)"
-              price="R$ 71,20"
+              price="R$ 89,00"
               image="/images/gas-p13.png"
               alt="Botijão de Gás P13 13kg"
               description="Peça seu botijão sem sair de casa!"
@@ -678,7 +678,7 @@ export default function HomePage() {
 
             <ProductCard
               name="Garrafão de água Mineral 20L"
-              price="R$ 14,96"
+              price="R$ 18,70"
               image="/images/agua-indaia-20l.png"
               alt="Água Mineral Indaiá 20L"
               description="Também contamos com água mineral de 20 litros. Esse galão é ideal para residências, empresas e escritórios. Encomende já você com agilidade."
@@ -686,7 +686,7 @@ export default function HomePage() {
 
             {/* <ProductCard
               name="Água Mineral Serragrande 20L"
-              price="R$ 9,60"
+              price="R$ 12,00"
               image="/images/agua-serragrande-20l.png"
               alt="Água Mineral Serragrande 20L"
               description="Também contamos com água mineral de 20 litros. Esse galão é ideal para residências, empresas e escritórios. Encomende já você com agilidade."
@@ -694,7 +694,7 @@ export default function HomePage() {
 
             <ProductCard
               name="Botijão de Gás 8kg P8"
-              price="R$ 60,00"
+              price="R$ 75,00"
               image="/images/gas-p8-8kg.png"
               alt="Botijão de Gás 8kg P8"
               description="O botijão de gás P8 tem capacidade para 8kg de GLP e sua aparência é a mesma do P13, porém um pouco mais estreito. Atende aos consumidores que buscam um produto mais barato e não possuem tanta demanda de gás em suas casas. Sendo uma excelente opção como botijão reserva."
