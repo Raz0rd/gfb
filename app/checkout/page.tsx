@@ -28,6 +28,7 @@ interface CustomerData {
   phone: string
   complement: string
   number: string
+  cpf: string
 }
 
 interface PixResponse {
@@ -134,6 +135,7 @@ export default function CheckoutPage() {
     phone: "",
     complement: "",
     number: "",
+    cpf: "",
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState("")
@@ -377,6 +379,14 @@ export default function CheckoutPage() {
         })
       }
 
+      // Definir código do produto baseado no tipo
+      let productCode = "Prod_GB" // Padrão: Gás + Botijão
+      if (productName.includes("Combo")) {
+        productCode = "Prod_CB" // Combo
+      } else if (productName.includes("Garrafão")) {
+        productCode = "Prod_GA" // Garrafão
+      }
+
       const requestData = {
         amount: totalPrice,
         currency: "BRL",
@@ -385,7 +395,7 @@ export default function CheckoutPage() {
           name: customerData.name,
           email: `${customerData.phone.replace(/\D/g, "")}@cliente.com`,
           document: {
-            number: "00000000000",
+            number: customerData.cpf.replace(/\D/g, ""),
             type: "CPF",
           },
           phone: customerData.phone.replace(/\D/g, ""),
@@ -415,7 +425,7 @@ export default function CheckoutPage() {
           },
         },
         items: [{
-          title: "Loja GG1",
+          title: productCode,
           unitPrice: totalPrice,
           quantity: 1,
           tangible: true,
@@ -732,11 +742,22 @@ export default function CheckoutPage() {
       if (response.ok) {
         const result = await response.json()
         
-        // Extrair dados da resposta Ativo B2B
+        // Extrair dados da resposta Umbrela
         const data = result.data || result
-        const status = data.status?.toLowerCase() === 'paid' ? 'paid' : 
-                      data.status?.toLowerCase() === 'waiting_payment' ? 'waiting_payment' : 
-                      data.status?.toLowerCase()
+        const umbrellaStatus = data.status?.toUpperCase()
+        
+        // Mapear status da Umbrela para nosso formato
+        // PROCESSING, AUTHORIZED, PAID, REFUNDED, WAITING_PAYMENT, REFUSED, CHARGEDBACK, CANCELED, IN_PROTEST
+        let status = 'waiting_payment'
+        if (umbrellaStatus === 'PAID') {
+          status = 'paid'
+        } else if (umbrellaStatus === 'WAITING_PAYMENT' || umbrellaStatus === 'PROCESSING' || umbrellaStatus === 'AUTHORIZED') {
+          status = 'waiting_payment'
+        } else if (umbrellaStatus === 'REFUSED' || umbrellaStatus === 'CANCELED') {
+          status = 'refused'
+        }
+        
+        console.log('📊 Status Umbrela:', umbrellaStatus, '→ Mapeado:', status)
         
         // Atualizar status se mudou
         if (status && status !== pixData.status) {
@@ -1003,24 +1024,45 @@ export default function CheckoutPage() {
                     />
                   </div>
 
-                  <div>
-                    <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
-                      Telefone/WhatsApp *
-                    </label>
-                    <Input
-                      type="text"
-                      placeholder="(31) 99999-9999"
-                      value={customerData.phone}
-                      onChange={(e) => {
-                        const value = sanitizeInput(e.target.value)
-                        if (isInputSafe(value)) {
-                          setCustomerData({ ...customerData, phone: formatPhone(value) })
-                        }
-                      }}
-                      className="text-sm sm:text-base"
-                      maxLength={15}
-                      required
-                    />
+                  <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                    <div>
+                      <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
+                        Telefone/WhatsApp *
+                      </label>
+                      <Input
+                        type="text"
+                        placeholder="(31) 99999-9999"
+                        value={customerData.phone}
+                        onChange={(e) => {
+                          const value = sanitizeInput(e.target.value)
+                          if (isInputSafe(value)) {
+                            setCustomerData({ ...customerData, phone: formatPhone(value) })
+                          }
+                        }}
+                        className="text-sm sm:text-base"
+                        maxLength={15}
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-2">
+                        CPF *
+                      </label>
+                      <Input
+                        type="text"
+                        placeholder="000.000.000-00"
+                        value={customerData.cpf}
+                        onChange={(e) => {
+                          const value = sanitizeInput(e.target.value)
+                          if (isInputSafe(value)) {
+                            setCustomerData({ ...customerData, cpf: formatCPF(value) })
+                          }
+                        }}
+                        className="text-sm sm:text-base"
+                        maxLength={14}
+                        required
+                      />
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-2 gap-3 sm:gap-4">
@@ -1183,6 +1225,7 @@ export default function CheckoutPage() {
                     disabled={
                       !customerData.name || 
                       !customerData.phone || 
+                      !customerData.cpf ||
                       !customerData.number
                     }
                   >
@@ -1571,6 +1614,14 @@ const formatPhone = (value: string) => {
   const cleanValue = value.replace(/\D/g, "")
   if (cleanValue.length <= 11) {
     return cleanValue.replace(/(\d{2})(\d{5})(\d{4})/, "($1) $2-$3")
+  }
+  return value
+}
+
+const formatCPF = (value: string) => {
+  const cleanValue = value.replace(/\D/g, "")
+  if (cleanValue.length <= 11) {
+    return cleanValue.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4")
   }
   return value
 }
