@@ -32,9 +32,28 @@ export async function POST(request: NextRequest) {
       }, { status: response.status })
     }
 
-    const data = await response.json()
-    console.log("✅ Transação Ativo B2B criada:", data)
-    return NextResponse.json(data)
+    const result = await response.json()
+    console.log("✅ Transação Ativo B2B criada:", result)
+    
+    // Adaptar resposta para formato compatível (apenas PIX)
+    if (result.status === 200 && result.data) {
+      const data = result.data
+      const adaptedResponse = {
+        id: data.id,
+        status: data.status, // WAITING_PAYMENT, PAID, REFUSED
+        amount: data.amount,
+        paymentMethod: "PIX",
+        pix: {
+          qrcode: data.qrCode || "",
+          expirationDate: data.pix?.expirationDate || new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        },
+        customer: data.customer,
+        items: data.items,
+      }
+      return NextResponse.json(adaptedResponse)
+    }
+    
+    return NextResponse.json(result)
   } catch (error) {
     console.error("❌ Erro ao criar transação Ativo B2B:", error)
     return NextResponse.json({ error: "Erro interno do servidor" }, { status: 500 })
