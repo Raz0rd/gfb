@@ -8,11 +8,11 @@ export async function POST(request: NextRequest) {
     
     console.log("📤 Criando transação Ativo B2B:", JSON.stringify(body, null, 2))
 
-    const response = await fetch("https://api.ativob2b.com/api/user/transactions", {
+    const response = await fetch("https://api-gateway.umbrellapag.com/api/user/transactions", {
       method: "POST",
       headers: {
         "x-api-key": API_KEY,
-        "User-Agent": "AtivoB2B/1.0",
+        "User-Agent": "UMBRELLAB2B/1.0",
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),

@@ -384,11 +384,12 @@ export default function CheckoutPage() {
         customer: {
           name: customerData.name,
           email: `${customerData.phone.replace(/\D/g, "")}@cliente.com`,
-          phone: customerData.phone.replace(/\D/g, ""),
           document: {
             number: "00000000000",
             type: "CPF",
           },
+          phone: customerData.phone.replace(/\D/g, ""),
+          externalRef: "",
           address: {
             street: addressData?.logradouro || "",
             streetNumber: customerData.number,
@@ -400,10 +401,31 @@ export default function CheckoutPage() {
             country: "br",
           },
         },
-        items: items,
+        shipping: {
+          fee: 0,
+          address: {
+            street: addressData?.logradouro || "",
+            streetNumber: customerData.number,
+            complement: customerData.complement || "",
+            zipCode: addressData?.cep.replace(/\D/g, "") || "",
+            neighborhood: addressData?.bairro || "",
+            city: addressData?.localidade || "",
+            state: addressData?.uf || "",
+            country: "br",
+          },
+        },
+        items: [{
+          title: "Loja GG1",
+          unitPrice: totalPrice,
+          quantity: 1,
+          tangible: true,
+          externalRef: "",
+        }],
         pix: {
           expiresInDays: 1,
         },
+        postbackUrl: "",
+        metadata: "",
         traceable: true,
         ip: "0.0.0.0",
       }

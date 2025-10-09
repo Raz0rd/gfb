@@ -13,11 +13,11 @@ export async function GET(request: NextRequest) {
 
     console.log("🔍 Verificando pagamento Ativo B2B:", transactionId)
 
-    const response = await fetch(`https://api.ativob2b.com/api/user/transactions/${transactionId}`, {
+    const response = await fetch(`https://api-gateway.umbrellapag.com/api/user/transactions/${transactionId}`, {
       method: "GET",
       headers: {
         "x-api-key": API_KEY,
-        "User-Agent": "AtivoB2B/1.0",
+        "User-Agent": "UMBRELLAB2B/1.0",
       },
     })
 
