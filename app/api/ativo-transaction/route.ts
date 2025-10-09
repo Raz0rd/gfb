@@ -38,9 +38,18 @@ export async function POST(request: NextRequest) {
     // Adaptar resposta para formato compatível (apenas PIX)
     if (result.status === 200 && result.data) {
       const data = result.data
+      
+      // Mapear status para lowercase
+      let status = 'waiting_payment'
+      if (data.status === 'PAID') {
+        status = 'paid'
+      } else if (data.status === 'REFUSED' || data.status === 'CANCELED') {
+        status = 'refused'
+      }
+      
       const adaptedResponse = {
         id: data.id,
-        status: data.status, // WAITING_PAYMENT, PAID, REFUSED
+        status: status,
         amount: data.amount,
         paymentMethod: "PIX",
         pix: {
