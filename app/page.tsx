@@ -635,17 +635,17 @@ export default function HomePage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8 max-w-5xl mx-auto">
             
-            {/* COMBOS PRIMEIRO - MAIS VENDIDOS */}
+            {/* 1. GÁS P13 - MAIS VENDIDO */}
             <ProductCard
-              name="Combo 2 Botijões de Gás 13kg"
-              price="R$ 170,00"
-              image="/images/combo 2 botijao 13kg.png"
-              alt="Combo 2 Botijões de Gás 13kg"
-              description="Combo promocional com 2 botijões de gás P13. Economia garantida para sua casa com desconto especial na compra em conjunto."
+              name="Gás de cozinha 13 kg (P13)"
+              price="R$ 89,00"
+              image="/images/gas-p13.png"
+              alt="Botijão de Gás P13 13kg"
+              description="Peça seu botijão sem sair de casa!"
               isBestSeller={true}
-              isCombo={true}
             />
 
+            {/* 2. COMBO GÁS + GARRAFÃO */}
             <ProductCard
               name="Combo Gás + Garrafão"
               price="R$ 99,00"
@@ -656,6 +656,16 @@ export default function HomePage() {
               isCombo={true}
             />
 
+            {/* 3. GARRAFÃO DE ÁGUA */}
+            <ProductCard
+              name="Garrafão de água Mineral 20L"
+              price="R$ 18,70"
+              image="/images/agua-indaia-20l.png"
+              alt="Água Mineral Indaiá 20L"
+              description="Também contamos com água mineral de 20 litros. Esse galão é ideal para residências, empresas e escritórios. Encomende já você com agilidade."
+            />
+
+            {/* 4. 3 GARRAFÕES */}
             <ProductCard
               name="3 Garrafões de Água 20L"
               price="R$ 49,70"
@@ -666,22 +676,15 @@ export default function HomePage() {
               isCombo={true}
             />
 
-            {/* PRODUTOS INDIVIDUAIS */}
+            {/* 5. COMBO 2 BOTIJÕES */}
             <ProductCard
-              name="Gás de cozinha 13 kg (P13)"
-              price="R$ 89,00"
-              image="/images/gas-p13.png"
-              alt="Botijão de Gás P13 13kg"
-              description="Peça seu botijão sem sair de casa!"
+              name="Combo 2 Botijões de Gás 13kg"
+              price="R$ 170,00"
+              image="/images/combo 2 botijao 13kg.png"
+              alt="Combo 2 Botijões de Gás 13kg"
+              description="Combo promocional com 2 botijões de gás P13. Economia garantida para sua casa com desconto especial na compra em conjunto."
               isBestSeller={true}
-            />
-
-            <ProductCard
-              name="Garrafão de água Mineral 20L"
-              price="R$ 18,70"
-              image="/images/agua-indaia-20l.png"
-              alt="Água Mineral Indaiá 20L"
-              description="Também contamos com água mineral de 20 litros. Esse galão é ideal para residências, empresas e escritórios. Encomende já você com agilidade."
+              isCombo={true}
             />
 
             {/* <ProductCard
