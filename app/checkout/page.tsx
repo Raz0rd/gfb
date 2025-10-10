@@ -116,16 +116,16 @@ export default function CheckoutPage() {
   }, [])
 
   const productPrices: { [key: string]: number } = {
-    "Gás de cozinha 13 kg (P13)": 9050, // R$ 90,50 em centavos (+R$ 1,50)
-    "Gás de Cozinha 13kg": 9050, // R$ 90,50 em centavos (compatibilidade)
-    "Água Mineral Indaiá 20L": 1350, // R$ 13,50 em centavos (+R$ 1,50)
-    "Garrafão de água Mineral 20L": 2020, // R$ 20,20 em centavos (+R$ 1,50)
-    "Água Mineral Serragrande 20L": 1350, // R$ 13,50 em centavos (+R$ 1,50)
-    "Botijão de Gás 8kg P8": 7650, // R$ 76,50 em centavos (+R$ 1,50)
-    "Botijão de Gás 8kg": 7650, // R$ 76,50 em centavos (compatibilidade)
-    "3 Garrafões de Água 20L": 5120, // R$ 51,20 em centavos (+R$ 1,50)
-    "Combo 2 Botijões de Gás 13kg": 17150, // R$ 171,50 em centavos (+R$ 1,50)
-    "Combo Gás + Garrafão": 10050, // R$ 100,50 em centavos (+R$ 1,50)
+    "Gás de cozinha 13 kg (P13)": 8600, // R$ 86,00 em centavos
+    "Gás de Cozinha 13kg": 8600, // R$ 86,00 em centavos (compatibilidade)
+    "Água Mineral Indaiá 20L": 1283, // R$ 12,83 em centavos
+    "Garrafão de água Mineral 20L": 1920, // R$ 19,20 em centavos
+    "Água Mineral Serragrande 20L": 1283, // R$ 12,83 em centavos
+    "Botijão de Gás 8kg P8": 7270, // R$ 72,70 em centavos
+    "Botijão de Gás 8kg": 7270, // R$ 72,70 em centavos (compatibilidade)
+    "3 Garrafões de Água 20L": 4860, // R$ 48,60 em centavos
+    "Combo 2 Botijões de Gás 13kg": 16300, // R$ 163,00 em centavos
+    "Combo Gás + Garrafão": 9550, // R$ 95,50 em centavos
   }
 
   const [addressData, setAddressData] = useState<AddressData | null>(null)
@@ -238,7 +238,7 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     // Verificar se já tem dados do CEP no localStorage
-    const savedAddress = localStorage.getItem("unigas-address")
+    const savedAddress = localStorage.getItem("configas-address")
     if (savedAddress) {
       const parsedAddress = JSON.parse(savedAddress)
       setAddressData(parsedAddress)
@@ -293,7 +293,7 @@ export default function CheckoutPage() {
       }
 
       setAddressData(data)
-      localStorage.setItem("unigas-address", JSON.stringify(data))
+      localStorage.setItem("configas-address", JSON.stringify(data))
       setStep(2)
     } catch (err) {
       setError("Erro ao buscar CEP")
@@ -455,9 +455,6 @@ export default function CheckoutPage() {
       const pixResponse: PixResponse = await response.json()
       setPixData(pixResponse)
       
-      // Reportar início de checkout para Google Ads
-      reportCheckoutStart()
-      
       // Reportar conversão de QR Code gerado
       reportQRCodeGenerated()
     } catch (err) {
@@ -504,7 +501,7 @@ export default function CheckoutPage() {
   // Calcular preço total incluindo kit mangueira
   const getTotalPrice = () => {
     const basePrice = productPrices[productName] || 1000
-    const kitPrice = kitMangueira ? 980 : 0 // R$ 9,80 em centavos
+    const kitPrice = kitMangueira ? 930 : 0 // R$ 9,30 em centavos
     return basePrice + kitPrice
   }
 
@@ -530,31 +527,38 @@ export default function CheckoutPage() {
     }
   }
 
-  // Função para reportar conversão após gerar QR Code
+  // Função para reportar conversão após gerar QR Code (Iniciar finalização de compra)
   const reportQRCodeGenerated = () => {
     if (typeof window === 'undefined' || !window.gtag) {
       console.error('❌ Google Tag não encontrado para QR Code gerado')
       return
     }
     
+    const initiateCheckoutTag = process.env.NEXT_PUBLIC_GOOGLE_ADS_INITIATE_CHECKOUT
+    
+    if (!initiateCheckoutTag) {
+      console.error('❌ NEXT_PUBLIC_GOOGLE_ADS_INITIATE_CHECKOUT não configurado no .env')
+      return
+    }
+    
     try {
-      console.log('📱 Enviando conversão de QR Code gerado:', {
-        send_to: 'AW-17612041352/pN07CInorKobEIjZic5B'
+      console.log('📱 Enviando conversão de Iniciar finalização de compra:', {
+        send_to: initiateCheckoutTag
       })
       
       window.gtag('event', 'conversion', {
-        'send_to': 'AW-17612041352/pN07CInorKobEIjZic5B'
+        'send_to': initiateCheckoutTag
       })
       
-      console.log('✅ Conversão de QR Code gerado enviada!')
+      console.log('✅ Conversão de Iniciar finalização de compra enviada!')
     } catch (error) {
-      console.error('❌ Erro ao enviar conversão de QR Code gerado:', error)
+      console.error('❌ Erro ao enviar conversão de Iniciar finalização de compra:', error)
     }
   }
 
-  // Função para reportar conversão do Google Ads (quando paga)
+  // Função para reportar conversão do Google Ads (quando paga - Compra)
   const reportConversion = (value: number, transactionId: string) => {
-    console.log('🎯 Tentando reportar conversão Google Ads...')
+    console.log('🎯 Tentando reportar conversão de Compra...')
     console.log('📊 Dados:', { value, transactionId, gtag: typeof window !== 'undefined' ? typeof window.gtag : 'undefined' })
     
     if (typeof window === 'undefined') {
@@ -568,25 +572,32 @@ export default function CheckoutPage() {
       return
     }
     
+    const purchaseTag = process.env.NEXT_PUBLIC_GOOGLE_ADS_CONVERSION
+    
+    if (!purchaseTag) {
+      console.error('❌ NEXT_PUBLIC_GOOGLE_ADS_CONVERSION não configurado no .env')
+      return
+    }
+    
     try {
-      const conversionValue = value / 100; // Converter centavos para reais
+      const conversionValueBRL = value / 100; // Converter centavos para reais
       
-      console.log('✅ Enviando conversão:', {
-        send_to: 'AW-17545933033/08VqCI_Qj5obEOnhxq5B',
-        value: conversionValue,
+      console.log('✅ Enviando conversão de Compra:', {
+        send_to: purchaseTag,
+        value: conversionValueBRL,
         currency: 'BRL',
         transaction_id: transactionId
       })
       
-      // Enviar conversão principal
+      // Enviar conversão de Compra com valor real em BRL
       window.gtag('event', 'conversion', {
-        'send_to': process.env.NEXT_PUBLIC_GOOGLE_ADS_CONVERSION,
-        'value': conversionValue,
+        'send_to': purchaseTag,
+        'value': conversionValueBRL,
         'currency': 'BRL',
         'transaction_id': transactionId
       });
       
-      console.log('✅ Conversão Google Ads enviada com sucesso!')
+      console.log('✅ Conversão de Compra enviada com sucesso!')
       
       // Marcar que conversão foi reportada
       setConversionReported(true);
@@ -594,12 +605,12 @@ export default function CheckoutPage() {
       // Também reportar como evento de purchase para GA4
       window.gtag('event', 'purchase', {
         'transaction_id': transactionId,
-        'value': conversionValue,
+        'value': conversionValueBRL,
         'currency': 'BRL',
         'items': [{
           'item_id': productName.replace(/\s+/g, '_').toLowerCase(),
           'item_name': productName,
-          'price': conversionValue,
+          'price': conversionValueBRL,
           'quantity': 1
         }]
       });
@@ -616,7 +627,7 @@ export default function CheckoutPage() {
     if (smsReminderSent || !customerData.phone) return
     
     try {
-      const message = "Unigas: Volte ao nosso site! O Motoboy ta esperando a confirmacao pra ir, e menos de 10minutos na sua porta."
+      const message = "Configás: Volte ao nosso site! O Motoboy ta esperando a confirmacao pra ir, e menos de 10minutos na sua porta."
       const cleanPhone = customerData.phone.replace(/\D/g, '')
       const apiKey = "6YYTL0R2P8VOAJYG2JUZF5QGAEAVX28BMR0C9LPMVKDCFYXDG4ERLTZGD8PJ3ZDCZV1K4O3X48CV4NTRJONIV7S0ZQVDL3ZVGEXKN1ALDQMPHT7XXD2Z75CZMXXPR2SL"
       
@@ -890,9 +901,9 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-gray-100">
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-100">
+      <header className="bg-white shadow-md">
         <div className="container mx-auto px-4 py-3 sm:py-4 flex items-center justify-between">
           <Button
             variant="ghost"
@@ -903,8 +914,8 @@ export default function CheckoutPage() {
             <span className="hidden sm:inline">Voltar</span>
           </Button>
           <img
-            src="https://unigaseagua.com.br/wp-content/uploads/2025/02/unigas-com-letras-NORMAIS.png"
-            alt="Unigas e Água"
+            src="/images/configas.png"
+            alt="Configás e Água"
             className="h-6 sm:h-8 w-auto"
           />
           <div className="w-16 sm:w-20"></div>
@@ -1219,7 +1230,7 @@ export default function CheckoutPage() {
                             </div>
                             <div className="text-right">
                               <span className="text-xs text-gray-500 line-through">R$ 25,00</span>
-                              <div className="text-sm font-bold text-orange-600">R$ 9,80</div>
+                              <div className="text-sm font-bold text-orange-600">R$ 9,30</div>
                             </div>
                           </div>
                         </div>

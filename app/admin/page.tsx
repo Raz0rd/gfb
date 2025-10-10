@@ -193,7 +193,7 @@ export default function AdminPage() {
               </Button>
               <Button
                 variant="outline"
-                onClick={() => window.open('https://app.netlify.com/sites/unigas-clone/deploys', '_blank')}
+                onClick={() => window.open('https://app.netlify.com/sites/configas-clone/deploys', '_blank')}
                 className="w-full justify-start"
               >
                 📦 Netlify - Deploy

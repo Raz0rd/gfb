@@ -1,12 +1,17 @@
 import type { Metadata } from 'next'
-import { GeistSans } from 'geist/font/sans'
-import { GeistMono } from 'geist/font/mono'
+import { Inter } from 'next/font/google'
 import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 
+const inter = Inter({ 
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-inter'
+})
+
 export const metadata: Metadata = {
-  title: 'Gás na sua Porta',
-  description: 'Entrega rápida de gás e água mineral',
+  title: 'Configás - Gás e Água na sua Porta',
+  description: 'Entrega rápida de gás e água mineral em até 30 minutos',
   generator: 'v0.app',
 }
 
@@ -52,7 +57,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className={`font-sans ${GeistSans.variable} ${GeistMono.variable}`}>
+      <body className={`${inter.className} antialiased`}>
         {children}
         <Analytics />
       </body>

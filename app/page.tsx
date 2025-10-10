@@ -7,7 +7,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
-import { ShoppingCart, MapPin, Clock, Bike, Star, TrendingUp, HelpCircle } from "lucide-react"
+import { ShoppingCart, MapPin, Clock, Bike, Star, TrendingUp, HelpCircle, CheckCircle } from "lucide-react"
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 
@@ -91,7 +91,7 @@ export default function HomePage() {
       localStorage.setItem('utm-params', JSON.stringify(utmParams))
     }
     
-    const hasVisited = localStorage.getItem("unigas-visited")
+    const hasVisited = localStorage.getItem("configas-visited")
     if (!hasVisited) {
       setShowCepModal(true)
     }
@@ -201,7 +201,7 @@ export default function HomePage() {
       }
 
       setAddressData(data)
-      localStorage.setItem("unigas-address", JSON.stringify(data))
+      localStorage.setItem("configas-address", JSON.stringify(data))
     } catch (err) {
       setError("Erro ao buscar CEP")
     } finally {
@@ -216,7 +216,7 @@ export default function HomePage() {
 
   const handleCloseModal = () => {
     setShowCepModal(false)
-    localStorage.setItem("unigas-visited", "true")
+    localStorage.setItem("configas-visited", "true")
   }
 
   const formatCep = (value: string) => {
@@ -267,66 +267,71 @@ export default function HomePage() {
     isBestSeller?: boolean
     isCombo?: boolean
   }) => (
-    <Card className="bg-white border-gray-200 shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-2 animate-fade-in-up relative">
-      <CardContent className="p-6 sm:p-8 text-center">
-        {/* Badge Mais Vendidos */}
-        {isBestSeller && (
-          <div className="absolute top-4 right-4 bg-red-500 text-white px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1">
-            <Star size={12} fill="white" />
-            MAIS VENDIDO
-          </div>
-        )}
-        
-        {/* Badge Combo */}
-        {isCombo && (
-          <div className="absolute top-4 left-4 bg-green-500 text-white px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1">
-            <TrendingUp size={12} />
-            COMBO
-          </div>
-        )}
+    <Card className="bg-white border-0 shadow-md hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-1 animate-fade-in-up relative overflow-hidden group">
+      <CardContent className="p-4 sm:p-5">
+        {/* Badges */}
+        <div className="absolute top-3 right-3 flex flex-col gap-2 z-10">
+          {isBestSeller && (
+            <div className="bg-gradient-to-r from-red-500 to-pink-500 text-white px-2 py-1 rounded-md text-xs font-bold flex items-center gap-1 shadow-lg">
+              <Star size={10} fill="white" />
+              TOP
+            </div>
+          )}
+          {isCombo && (
+            <div className="bg-gradient-to-r from-green-500 to-emerald-500 text-white px-2 py-1 rounded-md text-xs font-bold flex items-center gap-1 shadow-lg">
+              <TrendingUp size={10} />
+              COMBO
+            </div>
+          )}
+        </div>
 
-        <div className="w-24 h-24 sm:w-32 sm:h-32 mx-auto mb-4 sm:mb-6 flex items-center justify-center">
+        {/* Imagem do Produto */}
+        <div className="relative w-20 h-20 sm:w-24 sm:h-24 mx-auto mb-3 flex items-center justify-center bg-gradient-to-br from-orange-50 to-blue-50 rounded-xl p-2">
           <img
             src={image}
             alt={alt}
-            className="w-full h-full object-contain transition-transform duration-300 hover:scale-110"
+            className="w-full h-full object-contain transition-transform duration-300 group-hover:scale-110"
           />
         </div>
         
-        <h3 className="text-gray-800 font-bold text-lg sm:text-xl mb-3">{name}</h3>
+        {/* Nome do Produto */}
+        <h3 className="text-gray-800 font-bold text-base sm:text-lg mb-2 line-clamp-2 min-h-[3rem]">{name}</h3>
         
-        <div className="mb-4">
-          <span className="text-2xl sm:text-3xl font-bold text-orange-500">{price}</span>
+        {/* Preço */}
+        <div className="mb-3">
+          <span className="text-2xl sm:text-3xl font-extrabold bg-gradient-to-r from-orange-500 to-blue-600 bg-clip-text text-transparent">{price}</span>
         </div>
 
-        {/* Entrega Grátis */}
-        <div className="flex items-center justify-center gap-2 mb-2 text-green-600 font-semibold text-sm">
-          <Bike size={16} />
-          Entrega Grátis via Motoboy
-        </div>
-
-        {/* Estoque */}
-        <div className="mb-4 text-red-600 font-semibold text-sm">
-          ⚡ Restam apenas {stock[name] || 0} unidades!
+        {/* Badges de Benefícios */}
+        <div className="flex flex-wrap gap-2 mb-3">
+          <div className="flex items-center gap-1 bg-green-50 text-green-700 px-2 py-1 rounded-md text-xs font-semibold">
+            <Bike size={12} />
+            Frete Grátis
+          </div>
+          <div className="flex items-center gap-1 bg-orange-50 text-orange-700 px-2 py-1 rounded-md text-xs font-semibold">
+            ⚡ {stock[name] || 0} un.
+          </div>
         </div>
         
-        <p className="text-gray-600 text-sm mb-4 sm:mb-6 leading-relaxed">
+        {/* Descrição Curta */}
+        <p className="text-gray-600 text-xs sm:text-sm mb-4 leading-relaxed line-clamp-2">
           {description}
         </p>
         
+        {/* Botão de Compra */}
         <Button
           onClick={() => handleBuyNow(name)}
-          className="bg-orange-500 hover:bg-orange-600 text-white px-4 sm:px-6 py-2 sm:py-3 rounded-lg flex items-center gap-2 mx-auto shadow-md hover:shadow-lg transition-all duration-300 text-sm sm:text-base"
+          className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white py-2.5 rounded-lg flex items-center justify-center gap-2 shadow-md hover:shadow-xl transition-all duration-300 text-sm font-bold"
         >
           <ShoppingCart size={16} />
-          Fazer Pedido
+          Comprar Agora
         </Button>
       </CardContent>
     </Card>
   )
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-gray-100">
       {/* Modal Como Funciona */}
       <Dialog open={showHowItWorksModal} onOpenChange={setShowHowItWorksModal}>
         <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
@@ -415,7 +420,7 @@ export default function HomePage() {
                 setShowHowItWorksModal(false)
                 document.getElementById("produtos")?.scrollIntoView({ behavior: "smooth" })
               }}
-              className="flex-1 bg-orange-500 hover:bg-orange-600 text-white"
+              className="flex-1 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white"
             >
               Entendi! Fazer Pedido
             </Button>
@@ -433,7 +438,7 @@ export default function HomePage() {
       <Dialog open={showCepModal} onOpenChange={setShowCepModal}>
         <DialogContent className="sm:max-w-md" showCloseButton={false}>
           <DialogHeader>
-            <DialogTitle className="text-center text-2xl font-bold text-gray-800">Bem-vindo à Unigas!</DialogTitle>
+            <DialogTitle className="text-center text-2xl font-bold text-gray-800">Bem-vindo à Configás!</DialogTitle>
             <DialogDescription className="text-center text-gray-600">
               Para verificarmos se atendemos sua região, informe seu CEP ou permita acesso à sua localização:
             </DialogDescription>
@@ -462,7 +467,7 @@ export default function HomePage() {
                 <Button
                   type="submit"
                   disabled={loading || cep.length < 9}
-                  className="w-full bg-orange-500 hover:bg-orange-600 text-white"
+                  className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white"
                 >
                   {loading ? "Verificando..." : "Verificar CEP"}
                 </Button>
@@ -476,7 +481,7 @@ export default function HomePage() {
                     requestUserLocation()
                     handleCloseModal()
                   }}
-                  className="w-full border-orange-500 text-orange-500 hover:bg-orange-50"
+                  className="w-full border-blue-600 text-blue-600 hover:bg-blue-50"
                 >
                   📍 Usar Minha Localização
                 </Button>
@@ -524,7 +529,7 @@ export default function HomePage() {
                 </p>
               </div>
 
-              <Button onClick={handleCloseModal} className="w-full bg-orange-500 hover:bg-orange-600 text-white">
+              <Button onClick={handleCloseModal} className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white">
                 Começar a Comprar
               </Button>
             </div>
@@ -533,19 +538,19 @@ export default function HomePage() {
       </Dialog>
 
       {/* Header */}
-      <header className="bg-white shadow-sm border-b border-gray-100 sticky top-0 z-50">
+      <header className="bg-white shadow-md sticky top-0 z-50">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center">
             <img
-              src="https://unigaseagua.com.br/wp-content/uploads/2025/02/unigas-com-letras-NORMAIS.png"
-              alt="Unigas e Água"
+              src="/images/configas.png"
+              alt="Configás e Água"
               className="h-8 sm:h-10 w-auto"
             />
           </div>
           <nav className="hidden md:flex items-center space-x-6">
             <a
               href="#produtos"
-              className="text-gray-600 hover:text-orange-500 transition-colors duration-200 text-sm font-medium"
+              className="text-gray-600 hover:text-blue-600 transition-colors duration-200 text-sm font-medium"
               onClick={(e) => {
                 e.preventDefault()
                 document.getElementById("produtos")?.scrollIntoView({ behavior: "smooth" })
@@ -555,7 +560,7 @@ export default function HomePage() {
             </a>
             <a
               href="#entrega"
-              className="text-gray-600 hover:text-orange-500 transition-colors duration-200 text-sm font-medium"
+              className="text-gray-600 hover:text-blue-600 transition-colors duration-200 text-sm font-medium"
               onClick={(e) => {
                 e.preventDefault()
                 document.getElementById("entrega")?.scrollIntoView({ behavior: "smooth" })
@@ -568,7 +573,7 @@ export default function HomePage() {
             <Button
               variant="ghost"
               size="sm"
-              className="text-gray-600 hover:text-orange-500 p-2"
+              className="text-gray-600 hover:text-blue-600 p-2"
               onClick={() => document.getElementById("produtos")?.scrollIntoView({ behavior: "smooth" })}
             >
               <ShoppingCart className="w-5 h-5" />
@@ -578,25 +583,30 @@ export default function HomePage() {
       </header>
 
       {/* Hero Section */}
-      <section id="inicio" className="bg-white py-12 sm:py-16 lg:py-20 border-b border-gray-100">
+      <section id="inicio" className="bg-white py-12 sm:py-16 lg:py-20">
         <div className="container mx-auto px-4">
           <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
             <div className="text-center lg:text-left animate-fade-in-up">
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-gray-800 mb-4 sm:mb-6 leading-tight">
-                Gás de cozinha
-                <br />e Água Mineral
+              <div className="inline-block mb-4 px-4 py-2 bg-gradient-to-r from-orange-500 to-blue-600 text-white rounded-full text-sm font-bold">
+                ✨ Novidade: Sem Troca de Vasilhame!
+              </div>
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4 sm:mb-6 leading-tight">
+                <span className="text-transparent bg-clip-text bg-gradient-to-r from-orange-500 to-blue-600">
+                  Gás de Cozinha
+                </span>
+                <br />
+                <span className="text-gray-800">e Água Mineral</span>
               </h1>
-              <p className="text-gray-700 mb-6 sm:mb-8 text-lg sm:text-xl font-semibold">
-  Somos parceiros das principais indústrias do setor e trazemos uma novidade única: 
-  você pode comprar seu <span className="text-orange-600 font-bold">Gás de Cozinha</span> ou 
-  <span className="text-blue-600 font-bold"> Água Mineral</span> em recipientes novos, 
-  <span className="underline"> sem precisar trocar o vasilhame</span>. 
-  Mais praticidade, mais agilidade e um preço justo direto da fábrica.
+              <p className="text-gray-700 mb-6 sm:mb-8 text-lg sm:text-xl">
+  Parceiros das melhores marcas do mercado, oferecemos <span className="text-orange-600 font-bold">Gás de Cozinha</span> e 
+  <span className="text-blue-600 font-bold">Água Mineral</span> em recipientes <span className="font-bold">100% novos</span>, 
+  <span className="font-bold underline decoration-orange-500">sem necessidade de troca</span>. 
+  Qualidade, praticidade e os melhores preços da região!
 </p>
               <div className="flex flex-col sm:flex-row gap-4 mb-6 justify-center lg:justify-start">
                 <Button
                   onClick={() => document.getElementById("produtos")?.scrollIntoView({ behavior: "smooth" })}
-                  className="bg-orange-500 hover:bg-orange-600 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-lg flex items-center justify-center gap-2 text-base sm:text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                  className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-6 sm:px-8 py-3 sm:py-4 rounded-lg flex items-center justify-center gap-2 text-base sm:text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
                 >
                   <ShoppingCart size={20} />
                   Fazer Pedido
@@ -604,7 +614,7 @@ export default function HomePage() {
                 <Button
                   onClick={() => setShowHowItWorksModal(true)}
                   variant="outline"
-                  className="border-2 border-orange-500 text-orange-500 hover:bg-orange-50 px-6 sm:px-8 py-3 sm:py-4 rounded-lg flex items-center justify-center gap-2 text-base sm:text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
+                  className="border-2 border-blue-600 text-blue-600 hover:bg-blue-50 px-6 sm:px-8 py-3 sm:py-4 rounded-lg flex items-center justify-center gap-2 text-base sm:text-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-300"
                 >
                   <HelpCircle size={20} />
                   Dúvidas?
@@ -615,9 +625,9 @@ export default function HomePage() {
             <div className="relative animate-fade-in-right">
               <div className="flex justify-center">
                 <img
-                  src="https://unigaseagua.com.br/wp-content/uploads/2025/02/Trabalhamos-com-3-1.png"
-                  alt="Produtos Unigas"
-                  className="w-64 sm:w-80 h-48 sm:h-60 object-contain rounded-lg shadow-lg"
+                  src="/images/fluxoatendimento.png"
+                  alt="Fluxo de Atendimento Configás"
+                  className="w-full max-w-2xl h-auto object-contain rounded-lg shadow-lg"
                 />
               </div>
             </div>
@@ -625,20 +635,59 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Benefits Section */}
+      <section className="bg-gradient-to-br from-orange-50 to-blue-50 py-12 sm:py-16">
+        <div className="container mx-auto px-4">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 sm:gap-8">
+            <div className="text-center animate-fade-in-up">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-3 sm:mb-4 bg-gradient-to-br from-orange-500 to-orange-600 rounded-full flex items-center justify-center shadow-lg">
+                <Clock className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
+              </div>
+              <h3 className="font-bold text-gray-800 text-sm sm:text-base mb-1 sm:mb-2">Entrega Rápida</h3>
+              <p className="text-gray-600 text-xs sm:text-sm">Até 30 minutos</p>
+            </div>
+
+            <div className="text-center animate-fade-in-up animation-delay-100">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-3 sm:mb-4 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center shadow-lg">
+                <Bike className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
+              </div>
+              <h3 className="font-bold text-gray-800 text-sm sm:text-base mb-1 sm:mb-2">Frete Grátis</h3>
+              <p className="text-gray-600 text-xs sm:text-sm">Em toda região</p>
+            </div>
+
+            <div className="text-center animate-fade-in-up animation-delay-200">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-3 sm:mb-4 bg-gradient-to-br from-green-500 to-green-600 rounded-full flex items-center justify-center shadow-lg">
+                <CheckCircle className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
+              </div>
+              <h3 className="font-bold text-gray-800 text-sm sm:text-base mb-1 sm:mb-2">Sem Troca</h3>
+              <p className="text-gray-600 text-xs sm:text-sm">Produtos novos</p>
+            </div>
+
+            <div className="text-center animate-fade-in-up animation-delay-300">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 mx-auto mb-3 sm:mb-4 bg-gradient-to-br from-purple-500 to-purple-600 rounded-full flex items-center justify-center shadow-lg">
+                <Star className="w-8 h-8 sm:w-10 sm:h-10 text-white" />
+              </div>
+              <h3 className="font-bold text-gray-800 text-sm sm:text-base mb-1 sm:mb-2">Qualidade</h3>
+              <p className="text-gray-600 text-xs sm:text-sm">Melhores marcas</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Products Section */}
-      <section id="produtos" className="bg-gray-50 py-12 sm:py-16 lg:py-20 border-b border-gray-200">
+      <section id="produtos" className="bg-gray-100 py-12 sm:py-16 lg:py-20">
         <div className="container mx-auto px-4">
           <div className="text-center mb-12 sm:mb-16 animate-fade-in-up">
             <h2 className="text-3xl sm:text-4xl font-bold text-gray-800 mb-4">Nossos Produtos</h2>
             <div className="w-24 h-1 bg-orange-500 mx-auto rounded-full"></div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 sm:gap-8 max-w-5xl mx-auto">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 max-w-7xl mx-auto">
             
             {/* 1. GÁS P13 - MAIS VENDIDO */}
             <ProductCard
               name="Gás de cozinha 13 kg (P13)"
-              price="R$ 90,50"
+              price="R$ 86,00"
               image="/images/gas-p13.png"
               alt="Botijão de Gás P13 13kg"
               description="Peça seu botijão sem sair de casa!"
@@ -648,7 +697,7 @@ export default function HomePage() {
             {/* 2. COMBO GÁS + GARRAFÃO */}
             <ProductCard
               name="Combo Gás + Garrafão"
-              price="R$ 100,50"
+              price="R$ 95,50"
               image="/images/comboGas_garrafao.png"
               alt="Combo Gás + Garrafão"
               description="Combo completo com 1 botijão de gás 13kg + 1 garrafão de água 20L. Praticidade e economia em um só pedido."
@@ -659,7 +708,7 @@ export default function HomePage() {
             {/* 3. GARRAFÃO DE ÁGUA */}
             <ProductCard
               name="Garrafão de água Mineral 20L"
-              price="R$ 20,20"
+              price="R$ 19,20"
               image="/images/agua-indaia-20l.png"
               alt="Água Mineral Indaiá 20L"
               description="Também contamos com água mineral de 20 litros. Esse galão é ideal para residências, empresas e escritórios. Encomende já você com agilidade."
@@ -668,7 +717,7 @@ export default function HomePage() {
             {/* 4. 3 GARRAFÕES */}
             <ProductCard
               name="3 Garrafões de Água 20L"
-              price="R$ 51,20"
+              price="R$ 48,60"
               image="/images/3garrafoes.png"
               alt="3 Garrafões de Água 20L"
               description="Combo econômico com 3 garrafões de água mineral de 20 litros. Ideal para famílias grandes, empresas e estabelecimentos comerciais."
@@ -679,7 +728,7 @@ export default function HomePage() {
             {/* 5. COMBO 2 BOTIJÕES */}
             <ProductCard
               name="Combo 2 Botijões de Gás 13kg"
-              price="R$ 171,50"
+              price="R$ 163,00"
               image="/images/combo 2 botijao 13kg.png"
               alt="Combo 2 Botijões de Gás 13kg"
               description="Combo promocional com 2 botijões de gás P13. Economia garantida para sua casa com desconto especial na compra em conjunto."
@@ -697,7 +746,7 @@ export default function HomePage() {
 
             <ProductCard
               name="Botijão de Gás 8kg P8"
-              price="R$ 76,50"
+              price="R$ 72,70"
               image="/images/gas-p8-8kg.png"
               alt="Botijão de Gás 8kg P8"
               description="O botijão de gás P8 tem capacidade para 8kg de GLP e sua aparência é a mesma do P13, porém um pouco mais estreito. Atende aos consumidores que buscam um produto mais barato e não possuem tanta demanda de gás em suas casas. Sendo uma excelente opção como botijão reserva."
@@ -706,15 +755,78 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* Infrastructure Section */}
+      <section className="bg-white py-12 sm:py-16 lg:py-20">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-12 sm:mb-16 animate-fade-in-up">
+            <h2 className="text-3xl sm:text-4xl font-bold text-gray-800 mb-4">Nossa Estrutura</h2>
+            <div className="w-24 h-1 bg-orange-500 mx-auto rounded-full"></div>
+            <p className="text-gray-600 mt-4 text-lg max-w-3xl mx-auto">
+              Contamos com uma infraestrutura completa para atender você com excelência
+            </p>
+          </div>
+
+          <div className="grid lg:grid-cols-2 gap-6 lg:gap-8 mb-8">
+            {/* Galpão */}
+            <div className="bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-shadow duration-300 overflow-hidden animate-fade-in-left">
+              <img
+                src="/images/interiorGalpao2.png"
+                alt="Centro de Distribuição Configás"
+                className="w-full h-56 sm:h-64 object-cover"
+              />
+              <div className="p-5 sm:p-6">
+                <h3 className="text-xl sm:text-2xl font-bold text-gray-800 mb-2 sm:mb-3">Centro de Distribuição</h3>
+                <p className="text-gray-600 text-sm sm:text-base leading-relaxed">
+                  Nosso moderno centro de distribuição conta com estoque amplo e organizado, 
+                  garantindo que sempre tenhamos produtos disponíveis para entrega imediata.
+                </p>
+              </div>
+            </div>
+
+            {/* Central de Atendimento */}
+            <div className="bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-shadow duration-300 overflow-hidden animate-fade-in-right">
+              <img
+                src="/images/internoAtendentes.png"
+                alt="Central de Atendimento Configás"
+                className="w-full h-56 sm:h-64 object-cover"
+              />
+              <div className="p-5 sm:p-6">
+                <h3 className="text-xl sm:text-2xl font-bold text-gray-800 mb-2 sm:mb-3">Central de Atendimento</h3>
+                <p className="text-gray-600 text-sm sm:text-base leading-relaxed">
+                  Nossa equipe de atendimento está sempre pronta para receber seu pedido e 
+                  coordenar a entrega com sistema integrado de rastreamento em tempo real.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Produtos em Estoque */}
+          <div className="bg-white rounded-2xl shadow-lg hover:shadow-2xl transition-shadow duration-300 overflow-hidden animate-fade-in-up">
+            <img
+              src="/images/produtosInterno.png"
+              alt="Estoque de Produtos Configás"
+              className="w-full h-64 sm:h-80 object-cover"
+            />
+            <div className="p-5 sm:p-6 text-center">
+              <h3 className="text-xl sm:text-2xl font-bold text-gray-800 mb-2 sm:mb-3">Estoque Sempre Abastecido</h3>
+              <p className="text-gray-600 text-sm sm:text-base leading-relaxed max-w-3xl mx-auto">
+                Mantemos um estoque robusto de garrafões de água e botijões de gás, 
+                organizados em nosso galpão climatizado para garantir entrega rápida.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Delivery Section */}
-      <section id="entrega" className="bg-white py-12 sm:py-16 lg:py-20 border-b border-gray-200">
+      <section id="entrega" className="bg-gradient-to-br from-blue-50 to-orange-50 py-12 sm:py-16 lg:py-20">
         <div className="container mx-auto px-4">
           <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-center">
             <div className="flex justify-center order-2 lg:order-1 animate-fade-in-left">
               <img
-                src="https://unigaseagua.com.br/wp-content/uploads/2025/02/Trabalhamos-com-4-1.png"
-                alt="Entrega de produtos"
-                className="w-64 sm:w-80 h-48 sm:h-60 object-contain rounded-lg shadow-lg"
+                src="/images/motoqueiros.png"
+                alt="Equipe de Entrega Configás"
+                className="w-full max-w-2xl h-auto object-contain rounded-lg shadow-lg"
               />
             </div>
             <div className="text-center lg:text-left order-1 lg:order-2 animate-fade-in-right">
@@ -735,7 +847,7 @@ export default function HomePage() {
       </section>
 
       {/* FAQ Section */}
-      <section id="faq" className="bg-gray-50 py-12 sm:py-16 lg:py-20 border-b border-gray-200">
+      <section id="faq" className="bg-white py-12 sm:py-16 lg:py-20">
         <div className="container mx-auto px-4">
           <div className="text-center mb-12 sm:mb-16 animate-fade-in-up">
             <h2 className="text-3xl sm:text-4xl font-bold text-gray-800 mb-4">Perguntas Frequentes</h2>
@@ -743,7 +855,7 @@ export default function HomePage() {
           </div>
           <div className="max-w-3xl mx-auto animate-fade-in-up animation-delay-200">
             <Accordion type="single" collapsible className="w-full space-y-3 sm:space-y-4">
-              <AccordionItem value="item-1" className="bg-white rounded-lg shadow-md border-0">
+              <AccordionItem value="item-1" className="bg-white rounded-xl shadow-md hover:shadow-lg transition-shadow border-0">
                 <AccordionTrigger className="px-4 sm:px-6 py-3 sm:py-4 hover:no-underline hover:bg-gray-50 rounded-lg transition-colors duration-300 text-left text-sm sm:text-base">
                   Posso pedir gás e água juntos?
                 </AccordionTrigger>
@@ -753,7 +865,7 @@ export default function HomePage() {
                 </AccordionContent>
               </AccordionItem>
 
-              <AccordionItem value="item-2" className="bg-white rounded-lg shadow-md border-0">
+              <AccordionItem value="item-2" className="bg-white rounded-xl shadow-md hover:shadow-lg transition-shadow border-0">
                 <AccordionTrigger className="px-4 sm:px-6 py-3 sm:py-4 hover:no-underline hover:bg-gray-50 rounded-lg transition-colors duration-300 text-left text-sm sm:text-base">
                   Qual o tempo de entrega?
                 </AccordionTrigger>
@@ -770,7 +882,7 @@ export default function HomePage() {
                   )}
                 </AccordionContent>
               </AccordionItem>
-              <AccordionItem value="item-3" className="bg-white rounded-lg shadow-md border-0">
+              <AccordionItem value="item-3" className="bg-white rounded-xl shadow-md hover:shadow-lg transition-shadow border-0">
                 <AccordionTrigger className="px-4 sm:px-6 py-3 sm:py-4 hover:no-underline hover:bg-gray-50 rounded-lg transition-colors duration-300 text-left text-sm sm:text-base">
                 Tenho que trocar o botijão como de costume?
                 </AccordionTrigger>
@@ -778,7 +890,7 @@ export default function HomePage() {
                   Não, vendemos os botijões cheios sem a necessidade de troca.
                 </AccordionContent>
               </AccordionItem>
-              <AccordionItem value="item-3" className="bg-white rounded-lg shadow-md border-0">
+              <AccordionItem value="item-3" className="bg-white rounded-xl shadow-md hover:shadow-lg transition-shadow border-0">
                 <AccordionTrigger className="px-4 sm:px-6 py-3 sm:py-4 hover:no-underline hover:bg-gray-50 rounded-lg transition-colors duration-300 text-left text-sm sm:text-base">
                 Tenho que devolver o garrafão ou trocar na hora?
                 </AccordionTrigger>
@@ -786,7 +898,7 @@ export default function HomePage() {
                   Não, vendemos os garrafões cheios sem a necessidade de devolução. São novos e nunca foram usados.
                 </AccordionContent>
               </AccordionItem>
-              <AccordionItem value="item-3" className="bg-white rounded-lg shadow-md border-0">
+              <AccordionItem value="item-3" className="bg-white rounded-xl shadow-md hover:shadow-lg transition-shadow border-0">
                 <AccordionTrigger className="px-4 sm:px-6 py-3 sm:py-4 hover:no-underline hover:bg-gray-50 rounded-lg transition-colors duration-300 text-left text-sm sm:text-base">
                   Quais formas de pagamento vocês aceitam?
                 </AccordionTrigger>
@@ -795,7 +907,7 @@ export default function HomePage() {
                 </AccordionContent>
               </AccordionItem>
 
-              <AccordionItem value="item-4" className="bg-white rounded-lg shadow-md border-0">
+              <AccordionItem value="item-4" className="bg-white rounded-xl shadow-md hover:shadow-lg transition-shadow border-0">
                 <AccordionTrigger className="px-4 sm:px-6 py-3 sm:py-4 hover:no-underline hover:bg-gray-50 rounded-lg transition-colors duration-300 text-left text-sm sm:text-base">
                   Vocês atendem em quais regiões?
                 </AccordionTrigger>
@@ -816,7 +928,7 @@ export default function HomePage() {
                 </AccordionContent>
               </AccordionItem>
 
-              <AccordionItem value="item-5" className="bg-white rounded-lg shadow-md border-0">
+              <AccordionItem value="item-5" className="bg-white rounded-xl shadow-md hover:shadow-lg transition-shadow border-0">
                 <AccordionTrigger className="px-4 sm:px-6 py-3 sm:py-4 hover:no-underline hover:bg-gray-50 rounded-lg transition-colors duration-300 text-left text-sm sm:text-base">
                   Como posso fazer meu pedido?
                 </AccordionTrigger>
@@ -830,9 +942,9 @@ export default function HomePage() {
       </section>
 
       {/* Footer */}
-      <footer className="bg-white py-8 sm:py-12 border-t-2 border-gray-100">
+      <footer className="bg-gray-800 py-8 sm:py-12">
         <div className="container mx-auto px-4 text-center">
-          <p className="text-gray-600 text-base sm:text-lg">© 2025 Unigas e Água. Todos os direitos reservados.</p>
+          <p className="text-gray-300 text-base sm:text-lg">© 2025 Configás e Água. Todos os direitos reservados.</p>
         </div>
       </footer>
     </div>

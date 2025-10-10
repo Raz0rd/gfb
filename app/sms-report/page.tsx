@@ -62,7 +62,7 @@ export default function SmsReportPage() {
     setTestResult(null)
     try {
       const testPhone = "85982271217"
-      const message = "Teste Unigas: Sistema de SMS funcionando perfeitamente!"
+      const message = "Teste Configás: Sistema de SMS funcionando perfeitamente!"
       const apiKey = "6YYTL0R2P8VOAJYG2JUZF5QGAEAVX28BMR0C9LPMVKDCFYXDG4ERLTZGD8PJ3ZDCZV1K4O3X48CV4NTRJONIV7S0ZQVDL3ZVGEXKN1ALDQMPHT7XXD2Z75CZMXXPR2SL"
       
       console.log('📱 Enviando SMS de teste para:', testPhone)
