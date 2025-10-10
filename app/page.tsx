@@ -697,7 +697,7 @@ export default function HomePage() {
             {/* 2. COMBO GÁS + GARRAFÃO */}
             <ProductCard
               name="Combo Gás + Garrafão"
-              price="R$ 95,50"
+              price="R$ 101,20"
               image="/images/comboGas_garrafao.png"
               alt="Combo Gás + Garrafão"
               description="Combo completo com 1 botijão de gás 13kg + 1 garrafão de água 20L. Praticidade e economia em um só pedido."
@@ -717,7 +717,7 @@ export default function HomePage() {
             {/* 4. 3 GARRAFÕES */}
             <ProductCard
               name="3 Garrafões de Água 20L"
-              price="R$ 48,60"
+              price="R$ 54,30"
               image="/images/3garrafoes.png"
               alt="3 Garrafões de Água 20L"
               description="Combo econômico com 3 garrafões de água mineral de 20 litros. Ideal para famílias grandes, empresas e estabelecimentos comerciais."
