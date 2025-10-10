@@ -116,16 +116,16 @@ export default function CheckoutPage() {
   }, [])
 
   const productPrices: { [key: string]: number } = {
-    "Gás de cozinha 13 kg (P13)": 8900, // R$ 89,00 em centavos (aumento de 25%)
-    "Gás de Cozinha 13kg": 8900, // R$ 89,00 em centavos (compatibilidade)
-    "Água Mineral Indaiá 20L": 1200, // R$ 12,00 em centavos (aumento de 25%)
-    "Garrafão de água Mineral 20L": 1870, // R$ 18,70 em centavos (aumento de 25%)
-    "Água Mineral Serragrande 20L": 1200, // R$ 12,00 em centavos (aumento de 25%)
-    "Botijão de Gás 8kg P8": 7500, // R$ 75,00 em centavos (aumento de 25%)
-    "Botijão de Gás 8kg": 7500, // R$ 75,00 em centavos (compatibilidade)
-    "3 Garrafões de Água 20L": 4970, // R$ 49,70 em centavos (aumento de 25%)
-    "Combo 2 Botijões de Gás 13kg": 17000, // R$ 170,00 em centavos (aumento de 25%)
-    "Combo Gás + Garrafão": 9900, // R$ 99,00 em centavos (aumento de 25%)
+    "Gás de cozinha 13 kg (P13)": 9050, // R$ 90,50 em centavos (+R$ 1,50)
+    "Gás de Cozinha 13kg": 9050, // R$ 90,50 em centavos (compatibilidade)
+    "Água Mineral Indaiá 20L": 1350, // R$ 13,50 em centavos (+R$ 1,50)
+    "Garrafão de água Mineral 20L": 2020, // R$ 20,20 em centavos (+R$ 1,50)
+    "Água Mineral Serragrande 20L": 1350, // R$ 13,50 em centavos (+R$ 1,50)
+    "Botijão de Gás 8kg P8": 7650, // R$ 76,50 em centavos (+R$ 1,50)
+    "Botijão de Gás 8kg": 7650, // R$ 76,50 em centavos (compatibilidade)
+    "3 Garrafões de Água 20L": 5120, // R$ 51,20 em centavos (+R$ 1,50)
+    "Combo 2 Botijões de Gás 13kg": 17150, // R$ 171,50 em centavos (+R$ 1,50)
+    "Combo Gás + Garrafão": 10050, // R$ 100,50 em centavos (+R$ 1,50)
   }
 
   const [addressData, setAddressData] = useState<AddressData | null>(null)
@@ -457,6 +457,9 @@ export default function CheckoutPage() {
       
       // Reportar início de checkout para Google Ads
       reportCheckoutStart()
+      
+      // Reportar conversão de QR Code gerado
+      reportQRCodeGenerated()
     } catch (err) {
       setPixError("Erro ao gerar PIX. Tente novamente.")
       console.error("Erro PIX:", err)
@@ -524,6 +527,28 @@ export default function CheckoutPage() {
       console.log('✅ Conversão de início de checkout enviada!')
     } catch (error) {
       console.error('❌ Erro ao enviar conversão de início de checkout:', error)
+    }
+  }
+
+  // Função para reportar conversão após gerar QR Code
+  const reportQRCodeGenerated = () => {
+    if (typeof window === 'undefined' || !window.gtag) {
+      console.error('❌ Google Tag não encontrado para QR Code gerado')
+      return
+    }
+    
+    try {
+      console.log('📱 Enviando conversão de QR Code gerado:', {
+        send_to: 'AW-17612041352/pN07CInorKobEIjZic5B'
+      })
+      
+      window.gtag('event', 'conversion', {
+        'send_to': 'AW-17612041352/pN07CInorKobEIjZic5B'
+      })
+      
+      console.log('✅ Conversão de QR Code gerado enviada!')
+    } catch (error) {
+      console.error('❌ Erro ao enviar conversão de QR Code gerado:', error)
     }
   }
 
