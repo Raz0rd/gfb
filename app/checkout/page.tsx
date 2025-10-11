@@ -456,8 +456,8 @@ export default function CheckoutPage() {
       const pixResponse: PixResponse = await response.json()
       setPixData(pixResponse)
       
-      // Reportar conversão de QR Code gerado
-      reportQRCodeGenerated()
+      // Reportar conversão de Iniciar finalização de compra (QR Code gerado)
+      reportInitiateCheckout()
     } catch (err) {
       setPixError("Erro ao gerar PIX. Tente novamente.")
       console.error("Erro PIX:", err)
@@ -506,32 +506,10 @@ export default function CheckoutPage() {
     return basePrice + kitPrice
   }
 
-  // Função para reportar início de checkout (quando gera PIX)
-  const reportCheckoutStart = () => {
-    if (typeof window === 'undefined' || !window.gtag) {
-      console.error('❌ Google Tag não encontrado para início de checkout')
-      return
-    }
-    
-    try {
-      console.log('🛒 Enviando conversão de início de checkout:', {
-        send_to: 'AW-17545933033/dfuaCPPBjakbEOnhxq5B'
-      })
-      
-      window.gtag('event', 'conversion', {
-        'send_to': 'AW-17545933033/dfuaCPPBjakbEOnhxq5B'
-      })
-      
-      console.log('✅ Conversão de início de checkout enviada!')
-    } catch (error) {
-      console.error('❌ Erro ao enviar conversão de início de checkout:', error)
-    }
-  }
-
   // Função para reportar conversão após gerar QR Code (Iniciar finalização de compra)
-  const reportQRCodeGenerated = () => {
+  const reportInitiateCheckout = () => {
     if (typeof window === 'undefined' || !window.gtag) {
-      console.error('❌ Google Tag não encontrado para QR Code gerado')
+      console.error('❌ Google Tag não encontrado para Iniciar finalização de compra')
       return
     }
     
@@ -543,22 +521,24 @@ export default function CheckoutPage() {
     }
     
     try {
-      console.log('📱 Enviando conversão de Iniciar finalização de compra:', {
+      console.log('🛒 Enviando conversão de Iniciar finalização de compra (QR Code gerado):', {
         send_to: initiateCheckoutTag
       })
       
+      // Dispara conversão de Iniciar finalização de compra
       window.gtag('event', 'conversion', {
-        'send_to': initiateCheckoutTag
+        'send_to': initiateCheckoutTag,
+        'event_callback': function() {
+          console.log('✅ Conversão de Iniciar finalização de compra enviada!')
+        }
       })
-      
-      console.log('✅ Conversão de Iniciar finalização de compra enviada!')
     } catch (error) {
       console.error('❌ Erro ao enviar conversão de Iniciar finalização de compra:', error)
     }
   }
 
   // Função para reportar conversão do Google Ads (quando paga - Compra)
-  const reportConversion = (value: number, transactionId: string) => {
+  const reportPurchaseConversion = (value: number, transactionId: string) => {
     console.log('🎯 Tentando reportar conversão de Compra...')
     console.log('📊 Dados:', { value, transactionId, gtag: typeof window !== 'undefined' ? typeof window.gtag : 'undefined' })
     
@@ -573,29 +553,32 @@ export default function CheckoutPage() {
       return
     }
     
-    const purchaseTag = process.env.NEXT_PUBLIC_GOOGLE_ADS_CONVERSION
+    const purchaseTag = process.env.NEXT_PUBLIC_GOOGLE_ADS_PURCHASE
     
     if (!purchaseTag) {
-      console.error('❌ NEXT_PUBLIC_GOOGLE_ADS_CONVERSION não configurado no .env')
+      console.error('❌ NEXT_PUBLIC_GOOGLE_ADS_PURCHASE não configurado no .env')
       return
     }
     
     try {
       const conversionValueBRL = value / 100; // Converter centavos para reais
       
-      console.log('✅ Enviando conversão de Compra:', {
+      console.log('💰 Enviando conversão de Compra:', {
         send_to: purchaseTag,
         value: conversionValueBRL,
         currency: 'BRL',
         transaction_id: transactionId
       })
       
-      // Enviar conversão de Compra com valor real em BRL
+      // Dispara conversão de Compra com valor e transaction_id
       window.gtag('event', 'conversion', {
         'send_to': purchaseTag,
         'value': conversionValueBRL,
         'currency': 'BRL',
-        'transaction_id': transactionId
+        'transaction_id': transactionId,
+        'event_callback': function() {
+          console.log('✅ Conversão de Compra enviada!')
+        }
       });
       
       console.log('✅ Conversão de Compra enviada com sucesso!')
@@ -880,7 +863,8 @@ export default function CheckoutPage() {
   useEffect(() => {
     if (pixData && pixData.status === 'paid' && !conversionReported) {
       const totalPrice = getTotalPrice();
-      reportConversion(totalPrice, pixData.id.toString());
+      reportPurchaseConversion(totalPrice, pixData.id.toString());
+      setConversionReported(true);
     }
   }, [pixData?.status, productName, kitMangueira, conversionReported])
 
