@@ -1236,19 +1236,68 @@ export default function CheckoutPage() {
                     </div>
                   )}
 
-                  {/* Depoimento antes do botão */}
-                  <div className="bg-yellow-50 border-l-4 border-yellow-400 p-3 rounded">
-                    <div className="flex items-start gap-2">
-                      <div className="flex-shrink-0">
-                        <div className="flex text-yellow-500 text-xs">
-                          ⭐⭐⭐⭐⭐
+                  {/* Provas Sociais - Estilo Facebook */}
+                  <div className="space-y-3">
+                    {/* Comentário 1 */}
+                    <div className="bg-white border border-gray-200 rounded-lg p-3">
+                      <div className="flex items-start gap-3">
+                        <div className="flex-shrink-0">
+                          <div className="w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white font-bold text-sm">
+                            C
+                          </div>
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <p className="font-semibold text-sm text-gray-900">Carlos Mendes</p>
+                            <div className="flex text-yellow-500 text-xs">⭐⭐⭐⭐⭐</div>
+                          </div>
+                          <p className="text-xs text-gray-500 mb-2">há 2 dias</p>
+                          <p className="text-sm text-gray-700 leading-relaxed">
+                            Excelente serviço! Pedi o gás às 14h e chegou em 20 minutos. Entregador super educado e o preço melhor que na loja. Recomendo! 👍
+                          </p>
                         </div>
                       </div>
-                      <div>
-                        <p className="text-xs text-gray-700 italic leading-relaxed">
-                          "Paguei e em 15 min o gás chegou. Super rápido!"
-                        </p>
-                        <p className="text-xs text-gray-500 mt-1">— Maria S.</p>
+                    </div>
+
+                    {/* Comentário 2 */}
+                    <div className="bg-white border border-gray-200 rounded-lg p-3">
+                      <div className="flex items-start gap-3">
+                        <div className="flex-shrink-0">
+                          <div className="w-10 h-10 rounded-full bg-pink-500 flex items-center justify-center text-white font-bold text-sm">
+                            J
+                          </div>
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <p className="font-semibold text-sm text-gray-900">Juliana Costa</p>
+                            <div className="flex text-yellow-500 text-xs">⭐⭐⭐⭐⭐</div>
+                          </div>
+                          <p className="text-xs text-gray-500 mb-2">há 1 semana</p>
+                          <p className="text-sm text-gray-700 leading-relaxed">
+                            Primeira vez comprando online e adorei! Pagamento pelo PIX foi instantâneo e o gás chegou rapidinho. Muito prático! 🔥
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Comentário 3 */}
+                    <div className="bg-white border border-gray-200 rounded-lg p-3">
+                      <div className="flex items-start gap-3">
+                        <div className="flex-shrink-0">
+                          <div className="w-10 h-10 rounded-full bg-green-500 flex items-center justify-center text-white font-bold text-sm">
+                            R
+                          </div>
+                        </div>
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <p className="font-semibold text-sm text-gray-900">Roberto Silva</p>
+                            <div className="flex text-yellow-500 text-xs">⭐⭐⭐⭐⭐</div>
+                          </div>
+                          <p className="text-xs text-gray-500 mb-2">há 3 dias</p>
+                          <p className="text-sm text-gray-700 leading-relaxed">
+                            Atendimento nota 10! Fiz o pedido pelo site e em menos de 30 min já estava aqui. Preço justo e entrega rápida. Virei cliente! 💯
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -1359,11 +1408,7 @@ export default function CheckoutPage() {
                     <p>⚡ Confirmação imediata — o motoboy recebe seu pedido automaticamente.</p>
                   </div>
 
-                  {/* CNPJ e Razão Social */}
-                  <div className="text-center text-xs text-gray-600 border-t border-b py-2">
-                    <p><strong>Pagamento para:</strong> PAY PAGAMENTOS LTDA</p>
-                    <p>CNPJ: 62.745.712/0001-97</p>
-                  </div>
+
 
                   {/* Timer de Urgência */}
                   <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-center">
@@ -1529,8 +1574,8 @@ export default function CheckoutPage() {
                     {/* Informações da Empresa Parceira */}
                     <div className="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-lg">
                       <p className="text-xs text-gray-500 mb-1">Pagamento processado por:</p>
-                      <p className="text-xs font-semibold text-gray-700">HARIPAYMENTS</p>
-                      <p className="text-xs text-gray-500">CNPJ: 59.665.247/0001-70</p>
+                      <p className="text-xs font-semibold text-gray-700">PAY PAGAMENTOS LTDA</p>
+                      <p className="text-xs text-gray-500">CNPJ: 62.745.712/0001-97</p>
                     </div>
                     
                     {/* Botão de teste - remover em produção */}
