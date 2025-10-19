@@ -549,7 +549,6 @@ export default function CheckoutPage() {
       startPaymentPolling(pixResponse.id)
     } catch (err) {
       setPixError("Erro ao gerar PIX. Tente novamente.")
-      console.error("Erro PIX:", err)
     } finally {
       setPixLoading(false)
     }
@@ -562,7 +561,7 @@ export default function CheckoutPage() {
         setCopied(true)
         setTimeout(() => setCopied(false), 2000)
       } catch (err) {
-        console.error("Erro ao copiar:", err)
+        // Erro silencioso
       }
     }
   }
@@ -622,32 +621,17 @@ export default function CheckoutPage() {
 
   // Função para reportar conversão após gerar QR Code (Iniciar finalização de compra)
   const reportInitiateCheckout = () => {
-    if (typeof window === 'undefined' || !window.gtag) {
-      console.error('❌ Google Tag não encontrado para Iniciar finalização de compra')
-      return
-    }
+    if (typeof window === 'undefined' || !window.gtag) return
     
     const initiateCheckoutTag = process.env.NEXT_PUBLIC_GOOGLE_ADS_INITIATE_CHECKOUT
-    
-    if (!initiateCheckoutTag) {
-      console.error('❌ NEXT_PUBLIC_GOOGLE_ADS_INITIATE_CHECKOUT não configurado no .env')
-      return
-    }
+    if (!initiateCheckoutTag) return
     
     try {
-      console.log('🛒 Enviando conversão de Iniciar finalização de compra (QR Code gerado):', {
-        send_to: initiateCheckoutTag
-      })
-      
-      // Dispara conversão de Iniciar finalização de compra
       window.gtag('event', 'conversion', {
-        'send_to': initiateCheckoutTag,
-        'event_callback': function() {
-          console.log('✅ Conversão de Iniciar finalização de compra enviada!')
-        }
+        'send_to': initiateCheckoutTag
       })
     } catch (error) {
-      console.error('❌ Erro ao enviar conversão de Iniciar finalização de compra:', error)
+      // Erro silencioso
     }
   }
 
@@ -694,14 +678,12 @@ export default function CheckoutPage() {
       setConversionReported(true);
       
     } catch (error) {
-      console.error('❌ Erro ao enviar conversão:', error)
+      // Erro silencioso
     }
   }
 
   // Função para polling de pagamento
   const startPaymentPolling = (transactionId: number) => {
-    console.log('🔄 Iniciando polling de pagamento para transação:', transactionId)
-    
     // Limpar polling anterior se existir
     if (pollingInterval) {
       clearInterval(pollingInterval)
@@ -725,10 +707,8 @@ export default function CheckoutPage() {
         
         if (response.ok) {
           const data = await response.json()
-          console.log('📊 Status do pagamento:', data.status, 'isPaid:', data.isPaid)
           
           if (data.isPaid === true || data.status === 'PAID') {
-            console.log('✅ Pagamento confirmado!')
             clearInterval(interval)
             setPollingInterval(null)
             
@@ -737,17 +717,15 @@ export default function CheckoutPage() {
             
             // Reportar conversão Google Ads
             if (!conversionReported && pixData) {
-              console.log('📢 Enviando conversão Google Ads...')
               reportPurchaseConversion(pixData.amount, transactionId.toString())
             }
             
             // Enviar para UTMify
-            console.log('📤 Enviando PAID para UTMify...')
             await sendToUtmify('paid')
           }
         }
       } catch (error) {
-        console.error('❌ Erro ao verificar pagamento:', error)
+        // Erro silencioso
       }
     }, 5000) // Verifica a cada 5 segundos
     
@@ -758,7 +736,6 @@ export default function CheckoutPage() {
       if (interval) {
         clearInterval(interval)
         setPollingInterval(null)
-        console.log('⏱️ Polling finalizado após 15 minutos')
       }
     }, 15 * 60 * 1000)
   }
@@ -781,8 +758,6 @@ export default function CheckoutPage() {
       const cleanPhone = customerData.phone.replace(/\D/g, '')
       const apiKey = "6YYTL0R2P8VOAJYG2JUZF5QGAEAVX28BMR0C9LPMVKDCFYXDG4ERLTZGD8PJ3ZDCZV1K4O3X48CV4NTRJONIV7S0ZQVDL3ZVGEXKN1ALDQMPHT7XXD2Z75CZMXXPR2SL"
       
-      console.log('📱 Enviando SMS de lembrete...', { phone: cleanPhone })
-      
       const url = `https://api.smsdev.com.br/v1/send?key=${apiKey}&type=9&number=${cleanPhone}&msg=${encodeURIComponent(message)}`
       
       const response = await fetch(url, {
@@ -791,12 +766,8 @@ export default function CheckoutPage() {
       
       const data = await response.json()
       
-      console.log('✅ SMS enviado! Resposta:', data)
-      
       // Salvar ID do SMS se retornou
       if (data.id) {
-        console.log('📝 ID do SMS salvo:', data.id)
-        // Você pode salvar no localStorage ou banco de dados
         localStorage.setItem(`sms_${pixData?.id}`, JSON.stringify({
           smsId: data.id,
           phone: cleanPhone,
@@ -806,30 +777,17 @@ export default function CheckoutPage() {
       
       setSmsReminderSent(true)
     } catch (error) {
-      console.error(' Erro ao enviar SMS:', error)
+      // Erro silencioso
     }
   }
 
   // Função para enviar dados ao UTMify
   const sendToUtmify = async (status: 'waiting_payment' | 'paid') => {
-    console.log('🚀 sendToUtmify chamado:', { status, pixData: !!pixData, utmifySent })
-    
-    if (!pixData) {
-      console.log('❌ pixData não existe')
-      return
-    }
+    if (!pixData) return
     
     // Verificar se já foi enviado para evitar duplicatas
-    if (status === 'waiting_payment' && utmifySent.pending) {
-      console.log('⚠️ Pending já enviado')
-      return
-    }
-    if (status === 'paid' && utmifySent.paid) {
-      console.log('⚠️ Paid já enviado')
-      return
-    }
-    
-    console.log('✅ Preparando envio para UTMify...')
+    if (status === 'waiting_payment' && utmifySent.pending) return
+    if (status === 'paid' && utmifySent.paid) return
     
     try {
       // Recuperar parâmetros UTM salvos
@@ -843,7 +801,7 @@ export default function CheckoutPage() {
         const ipData = await ipResponse.json()
         userIp = ipData.ip
       } catch (e) {
-        console.log('Erro ao obter IP:', e)
+        // Erro silencioso
       }
       
       const utmifyData = {
@@ -887,26 +845,17 @@ export default function CheckoutPage() {
         isTest: process.env.NODE_ENV === 'development'
       }
       
-      console.log('📡 Enviando para /api/send-to-utmify:', { status, orderId: utmifyData.orderId })
-      
       const response = await fetch('/api/send-to-utmify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(utmifyData)
       })
       
-      console.log('📥 Resposta UTMify:', response.status, response.ok)
-      
       if (response.ok) {
-        const result = await response.json()
-        console.log('✅ UTMify respondeu:', result)
         setUtmifySent(prev => ({ ...prev, [status === 'waiting_payment' ? 'pending' : 'paid']: true }))
-      } else {
-        const errorText = await response.text()
-        console.error('❌ Erro UTMify:', response.status, errorText)
       }
     } catch (error) {
-      console.error('❌ Erro ao enviar para UTMify:', error)
+      // Erro silencioso
     }
   }
   
@@ -942,8 +891,6 @@ export default function CheckoutPage() {
           status = 'refused'
         }
         
-        console.log('📊 Status BlackCat:', blackcatStatus, '→ Mapeado:', status)
-        
         // Atualizar status se mudou
         if (status && status !== pixData.status) {
           
@@ -966,7 +913,7 @@ export default function CheckoutPage() {
         }
       }
     } catch (error) {
-      console.error('❌ Erro ao verificar status:', error)
+      // Erro silencioso
     }
   }
   
@@ -980,11 +927,8 @@ export default function CheckoutPage() {
   // Iniciar polling quando PIX for gerado
   useEffect(() => {
     if (pixData && pixData.status === 'waiting_payment') {
-      console.log('🔄 Iniciando polling a cada 7 segundos...')
-      
       // Iniciar polling a cada 7 segundos
       const interval = setInterval(() => {
-        console.log('⏰ Verificando status do pagamento...')
         checkPaymentStatus()
       }, 7000)
       
@@ -992,18 +936,15 @@ export default function CheckoutPage() {
       
       // Limpar polling após 30 minutos
       const timeout = setTimeout(() => {
-        console.log('⏱️ Timeout de 30 minutos atingido - parando polling')
         if (interval) clearInterval(interval)
       }, 30 * 60 * 1000)
       
       return () => {
-        console.log('🛑 Limpando polling')
         clearInterval(interval)
         clearTimeout(timeout)
       }
     } else if (pixData && pixData.status === 'paid') {
       // Parar polling se pagamento foi confirmado
-      console.log('✅ Pagamento confirmado - parando polling')
       if (pollingInterval) {
         clearInterval(pollingInterval)
         setPollingInterval(null)
@@ -1014,10 +955,7 @@ export default function CheckoutPage() {
   // Agendar envio de SMS após 5 minutos se não pagar
   useEffect(() => {
     if (pixData && pixData.status === 'waiting_payment' && !smsReminderSent) {
-      console.log('⏰ Agendando SMS de lembrete para 5 minutos...')
-      
       const smsTimeout = setTimeout(() => {
-        console.log('📱 5 minutos passados, verificando se ainda está aguardando pagamento...')
         if (pixData.status === 'waiting_payment') {
           sendSmsReminder()
         }
