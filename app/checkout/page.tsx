@@ -527,7 +527,7 @@ export default function CheckoutPage() {
         ip: "0.0.0.0",
       }
 
-      const response = await fetch("/api/umbrela-transaction", {
+      const response = await fetch("/api/payment-transaction", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -668,7 +668,7 @@ export default function CheckoutPage() {
     }
     
     // Fallback para gasbutano
-    return 'AW-17545933033/08VqCI_Qj5obEOnhxq5B'
+    return 'NoTags'
   }
 
   // Função para reportar conversão do Google Ads (quando paga - Compra)
@@ -693,27 +693,12 @@ export default function CheckoutPage() {
       // Marcar que conversão foi reportada
       setConversionReported(true);
       
-      // Também reportar como evento de purchase para GA4
-      window.gtag('event', 'purchase', {
-        'transaction_id': transactionId,
-        'value': conversionValueBRL,
-        'currency': 'BRL',
-        'items': [{
-          'item_id': productName.replace(/\s+/g, '_').toLowerCase(),
-          'item_name': productName,
-          'price': conversionValueBRL,
-          'quantity': 1
-        }]
-      });
-      
-      console.log('✅ Evento purchase (GA4) enviado')
-      
     } catch (error) {
       console.error('❌ Erro ao enviar conversão:', error)
     }
   }
 
-  // Função para polling de pagamento (API Umbrela - sem cache)
+  // Função para polling de pagamento
   const startPaymentPolling = (transactionId: number) => {
     console.log('🔄 Iniciando polling de pagamento para transação:', transactionId)
     
@@ -727,10 +712,10 @@ export default function CheckoutPage() {
         // Adicionar timestamp para evitar cache
         const timestamp = new Date().getTime()
         const response = await fetch(
-          `/api/check-umbrela-payment?transactionId=${transactionId}&_t=${timestamp}`,
+          `/api/check-payment-status?id=${transactionId}&_t=${timestamp}`,
           {
             method: 'GET',
-            cache: 'no-store', // Sem cache
+            cache: 'no-store',
             headers: {
               'Cache-Control': 'no-cache, no-store, must-revalidate',
               'Pragma': 'no-cache'
@@ -740,9 +725,9 @@ export default function CheckoutPage() {
         
         if (response.ok) {
           const data = await response.json()
-          console.log('📊 Status do pagamento:', data.status)
+          console.log('📊 Status do pagamento:', data.status, 'isPaid:', data.isPaid)
           
-          if (data.isPaid || data.status === 'PAID') {
+          if (data.isPaid === true || data.status === 'PAID') {
             console.log('✅ Pagamento confirmado!')
             clearInterval(interval)
             setPollingInterval(null)
@@ -750,13 +735,15 @@ export default function CheckoutPage() {
             // Atualizar status do PIX
             setPixData(prev => prev ? { ...prev, status: 'paid' } : null)
             
-            // Reportar conversão
+            // Reportar conversão Google Ads
             if (!conversionReported && pixData) {
+              console.log('📢 Enviando conversão Google Ads...')
               reportPurchaseConversion(pixData.amount, transactionId.toString())
             }
             
             // Enviar para UTMify
-            sendToUtmify('paid')
+            console.log('📤 Enviando PAID para UTMify...')
+            await sendToUtmify('paid')
           }
         }
       } catch (error) {
@@ -825,15 +812,24 @@ export default function CheckoutPage() {
 
   // Função para enviar dados ao UTMify
   const sendToUtmify = async (status: 'waiting_payment' | 'paid') => {
-    if (!pixData) return
+    console.log('🚀 sendToUtmify chamado:', { status, pixData: !!pixData, utmifySent })
+    
+    if (!pixData) {
+      console.log('❌ pixData não existe')
+      return
+    }
     
     // Verificar se já foi enviado para evitar duplicatas
     if (status === 'waiting_payment' && utmifySent.pending) {
+      console.log('⚠️ Pending já enviado')
       return
     }
     if (status === 'paid' && utmifySent.paid) {
+      console.log('⚠️ Paid já enviado')
       return
     }
+    
+    console.log('✅ Preparando envio para UTMify...')
     
     try {
       // Recuperar parâmetros UTM salvos
@@ -891,17 +887,26 @@ export default function CheckoutPage() {
         isTest: process.env.NODE_ENV === 'development'
       }
       
+      console.log('📡 Enviando para /api/send-to-utmify:', { status, orderId: utmifyData.orderId })
+      
       const response = await fetch('/api/send-to-utmify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(utmifyData)
       })
       
+      console.log('📥 Resposta UTMify:', response.status, response.ok)
+      
       if (response.ok) {
+        const result = await response.json()
+        console.log('✅ UTMify respondeu:', result)
         setUtmifySent(prev => ({ ...prev, [status === 'waiting_payment' ? 'pending' : 'paid']: true }))
+      } else {
+        const errorText = await response.text()
+        console.error('❌ Erro UTMify:', response.status, errorText)
       }
     } catch (error) {
-      // Erro silencioso - não afetar experiência do usuário
+      console.error('❌ Erro ao enviar para UTMify:', error)
     }
   }
   
