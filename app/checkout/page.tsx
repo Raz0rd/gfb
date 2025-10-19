@@ -932,12 +932,17 @@ export default function CheckoutPage() {
         // Atualizar status se mudou
         if (status && status !== pixData.status) {
           
-          // Se pagamento foi aprovado, enviar para UTMify ANTES de atualizar estado
+          // Se pagamento foi aprovado
           if (status === 'paid' && !utmifySent.paid) {
             const updatedPixData = { ...pixData, status: 'paid' }
             setPixData(updatedPixData)
             
-            // Enviar imediatamente para UTMify
+            // Reportar conversão do Google Ads
+            if (!conversionReported) {
+              reportPurchaseConversion(pixData.amount, pixData.id.toString())
+            }
+            
+            // Enviar para UTMify
             await sendToUtmify('paid')
           } else {
             // Apenas atualizar o estado para outros status
