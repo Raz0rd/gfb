@@ -444,11 +444,11 @@ export default function CheckoutPage() {
       }
 
       // Definir código do produto baseado no tipo
-      let productCode = "Prod_GB" // Padrão: Gás + Botijão
+      let productCode = "ProdNewGB" // Padrão: Gás + Botijão
       if (productName.includes("Combo")) {
-        productCode = "Prod_CB" // Combo
+        productCode = "ProdNewCB" // Combo
       } else if (productName.includes("Garrafão")) {
-        productCode = "Prod_GA" // Garrafão
+        productCode = "ProdNewGA" // Garrafão
       }
 
       const requestData = {
@@ -500,10 +500,10 @@ export default function CheckoutPage() {
         },
         postbackUrl: "",
         metadata: JSON.stringify({
-          source: "UTMify",
-          project: "Configas",
-          url: typeof window !== 'undefined' ? window.location.origin : "",
-          pixelId: process.env.NEXT_PUBLIC_UTMIFY_PIXEL_ID || "",
+          source: "apiutmify",
+          project: productCode,
+          url: "gasbu",
+          pixelId: "",
           timestamp: new Date().toISOString()
         }),
         traceable: true,
