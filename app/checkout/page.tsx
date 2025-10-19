@@ -405,6 +405,12 @@ export default function CheckoutPage() {
         }
       }
       
+      // 🔥 IMPORTANTE: Se produto requer pagamento parcelado, gerar PIX apenas com 50%
+      let pixAmount = totalPrice
+      if (requiresPartialPayment()) {
+        pixAmount = Math.round(totalPrice / 2) // 50% do valor final
+      }
+      
       let productTitle = productName
       
       if (isWaterProduct() && selectedWaterBrand) {
@@ -446,7 +452,7 @@ export default function CheckoutPage() {
       }
 
       const requestData = {
-        amount: totalPrice,
+        amount: pixAmount, // 🔥 Usar pixAmount (50% se parcelado) ao invés de totalPrice
         currency: "BRL",
         paymentMethod: "PIX",
         customer: {
