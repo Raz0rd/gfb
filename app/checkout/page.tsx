@@ -952,7 +952,7 @@ export default function CheckoutPage() {
   
   // Enviar pending para UTMify quando PIX for gerado
   useEffect(() => {
-    if (pixData && pixData.status === 'waiting_payment' && !utmifySent.pending) {
+    if (pixData && (pixData.status === 'waiting_payment' || pixData.status === 'WAITING_PAYMENT') && !utmifySent.pending) {
       sendToUtmify('waiting_payment')
     }
   }, [pixData?.id, pixData?.status, utmifySent.pending])
