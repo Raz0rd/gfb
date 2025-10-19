@@ -156,27 +156,24 @@ export default function HomePage() {
             }
           } catch (error) {
             console.log("Erro ao obter localização por GPS:", error)
+            // Não conseguimos obter localização - deixar vazio
+            setUserLocation({
+              city: "",
+              state: "",
+              loading: false,
+              confirmed: false
+            })
           }
-          
-          // Se falhou, usar localização padrão
-          setUserLocation({
-            city: "Barreiro, Contagem e região",
-            state: "MG",
-            loading: false,
-            confirmed: false
-          })
-          setTempCity("Barreiro, Contagem e região")
         },
         (error) => {
           console.log("Geolocalização negada ou erro:", error)
-          // Se geolocalização falhou, usar localização padrão
+          // Permissão negada - não usar fallback
           setUserLocation({
-            city: "Barreiro, Contagem e região",
-            state: "MG",
+            city: "",
+            state: "",
             loading: false,
             confirmed: false
           })
-          setTempCity("Barreiro, Contagem e região")
         },
         {
           timeout: 10000,
@@ -184,14 +181,13 @@ export default function HomePage() {
         }
       )
     } else {
-      // Se geolocalização não disponível, usar localização padrão
+      // Navegador não suporta geolocalização
       setUserLocation({
-        city: "Barreiro, Contagem e região",
-        state: "MG",
+        city: "",
+        state: "",
         loading: false,
         confirmed: false
       })
-      setTempCity("Barreiro, Contagem e região")
     }
   }
   
@@ -674,7 +670,7 @@ export default function HomePage() {
             </div>
           ) : (
             <div className="space-y-4">
-              {!editingLocation ? (
+              {!editingLocation && userLocation.city ? (
                 <>
                   <div className="bg-green-50 border-2 border-green-200 rounded-lg p-4">
                     <div className="flex items-center gap-3 mb-3">
@@ -709,6 +705,30 @@ export default function HomePage() {
                       Alterar
                     </Button>
                   </div>
+                </>
+              ) : !editingLocation && !userLocation.city ? (
+                <>
+                  <div className="bg-yellow-50 border-2 border-yellow-200 rounded-lg p-4">
+                    <div className="flex items-start gap-3">
+                      <span className="text-2xl">⚠️</span>
+                      <div>
+                        <p className="text-sm font-semibold text-gray-800 mb-2">
+                          Não conseguimos detectar sua localização
+                        </p>
+                        <p className="text-xs text-gray-600 leading-relaxed">
+                          Isso pode acontecer por falta de permissões necessárias ou configurações do navegador. 
+                          Não se preocupe! Você pode continuar digitando sua cidade manualmente.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <Button
+                    onClick={() => setEditingLocation(true)}
+                    className="w-full bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-semibold"
+                  >
+                    📝 Digitar Minha Cidade
+                  </Button>
                 </>
               ) : (
                 <>
