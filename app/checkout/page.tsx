@@ -1143,7 +1143,8 @@ export default function CheckoutPage() {
           <img
             src="/images/configas.png"
             alt="Configás e Água"
-            className="h-6 sm:h-8 w-auto"
+            className="h-10 sm:h-[50px] w-auto"
+            style={{ backgroundColor: 'transparent' }}
           />
           <div className="w-16 sm:w-20"></div>
         </div>

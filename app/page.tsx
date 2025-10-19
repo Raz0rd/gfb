@@ -765,7 +765,8 @@ export default function HomePage() {
             <img
               src="/images/configas.png"
               alt="Configás e Água"
-              className="h-8 sm:h-10 w-auto"
+              className="h-12 sm:h-[50px] w-auto"
+              style={{ backgroundColor: 'transparent' }}
             />
           </div>
           <nav className="hidden md:flex items-center space-x-6">
