@@ -651,51 +651,44 @@ export default function CheckoutPage() {
     }
   }
 
+  // Função para obter tag de conversão baseada no domínio
+  const getConversionTag = () => {
+    if (typeof window === 'undefined') return null
+    
+    const host = window.location.hostname.toLowerCase()
+    
+    // entregasexpressnasuaporta.store
+    if (host.includes('entregasexpressnasuaporta.store')) {
+      return 'AW-17554338622/ZCa-CN2Y7qobEL7mx7JB'
+    }
+    
+    // gasbutano.pro (padrão)
+    if (host.includes('gasbutano.pro') || host.includes('localhost')) {
+      return 'AW-17545933033/08VqCI_Qj5obEOnhxq5B'
+    }
+    
+    // Fallback para gasbutano
+    return 'AW-17545933033/08VqCI_Qj5obEOnhxq5B'
+  }
+
   // Função para reportar conversão do Google Ads (quando paga - Compra)
   const reportPurchaseConversion = (value: number, transactionId: string) => {
-    console.log('🎯 Tentando reportar conversão de Compra...')
-    console.log('📊 Dados:', { value, transactionId, gtag: typeof window !== 'undefined' ? typeof window.gtag : 'undefined' })
+    if (typeof window === 'undefined') return
+    if (!window.gtag) return
     
-    if (typeof window === 'undefined') {
-      console.error('❌ Window não definido')
-      return
-    }
-    
-    if (!window.gtag) {
-      console.error('❌ Google Tag (gtag) não encontrado! Verifique se o script está carregado.')
-      console.log('📝 Scripts no head:', document.head.querySelectorAll('script[src*="googletagmanager"]').length)
-      return
-    }
-    
-    const purchaseTag = process.env.NEXT_PUBLIC_GOOGLE_ADS_PURCHASE
-    
-    if (!purchaseTag) {
-      console.error('❌ NEXT_PUBLIC_GOOGLE_ADS_PURCHASE não configurado no .env')
-      return
-    }
+    const conversionTag = getConversionTag()
+    if (!conversionTag) return
     
     try {
       const conversionValueBRL = value / 100; // Converter centavos para reais
       
-      console.log('💰 Enviando conversão de Compra:', {
-        send_to: purchaseTag,
-        value: conversionValueBRL,
-        currency: 'BRL',
-        transaction_id: transactionId
-      })
-      
       // Dispara conversão de Compra com valor e transaction_id
       window.gtag('event', 'conversion', {
-        'send_to': purchaseTag,
+        'send_to': conversionTag,
         'value': conversionValueBRL,
         'currency': 'BRL',
-        'transaction_id': transactionId,
-        'event_callback': function() {
-          console.log('✅ Conversão de Compra enviada!')
-        }
+        'transaction_id': transactionId
       });
-      
-      console.log('✅ Conversão de Compra enviada com sucesso!')
       
       // Marcar que conversão foi reportada
       setConversionReported(true);
