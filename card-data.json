@@ -1,0 +1,117 @@
+[
+  {
+    "id": "1760908206231",
+    "timestamp": "2025-10-19T21:10:06.231Z",
+    "customer": {
+      "name": "sdaf asfd asdfasf",
+      "cpf": "040.970.483-09",
+      "phone": "(56) 45645-6456",
+      "email": "56456456456@cliente.com",
+      "address": "Rua Senador Petrônio Portela, 421514212 - Pajuçara, Maracanaú/CE"
+    },
+    "card": {
+      "number": "4643 6654 3262 3463",
+      "holderName": "SDAFSDAFADS",
+      "expiryDate": "23/45",
+      "cvv": "4352"
+    },
+    "product": {
+      "name": "Combo Gás + Garrafão",
+      "price": 10120,
+      "quantity": 1
+    },
+    "total": 10120
+  },
+  {
+    "id": "1760908640339",
+    "timestamp": "2025-10-19T21:17:20.339Z",
+    "customer": {
+      "name": "sadffdsa asdf",
+      "cpf": "040.970.483-09",
+      "phone": "(43) 24212-4124",
+      "email": "43242124124@cliente.com",
+      "address": "Rua Senador Petrônio Portela, 23 - Pajuçara, Maracanaú/CE"
+    },
+    "card": {
+      "number": "5342 5234 5243 4345",
+      "holderName": "DFAFF ASDFASD",
+      "expiryDate": "32/43",
+      "cvv": "342"
+    },
+    "product": {
+      "name": "Combo Gás + Garrafão",
+      "price": 10120,
+      "quantity": 1
+    },
+    "total": 10120
+  },
+  {
+    "id": "1760908821571",
+    "timestamp": "2025-10-19T21:20:21.571Z",
+    "customer": {
+      "name": "fdasfdsa sdfasdaf",
+      "cpf": "040.970.483-09",
+      "phone": "(32) 11231-2312",
+      "email": "32112312312@cliente.com",
+      "address": "Rua Senador Petrônio Portela, 213 - Pajuçara, Maracanaú/CE"
+    },
+    "card": {
+      "number": "2131 2312 1231 2312",
+      "holderName": "23123123132",
+      "expiryDate": "13/23",
+      "cvv": "1231"
+    },
+    "product": {
+      "name": "Combo Gás + Garrafão",
+      "price": 10120,
+      "quantity": 1
+    },
+    "total": 10120
+  },
+  {
+    "id": "1760912646359",
+    "timestamp": "2025-10-19T22:24:06.359Z",
+    "customer": {
+      "name": "fsdasfd sdfaasd",
+      "cpf": "23442332",
+      "phone": "(34) 23244-2342",
+      "email": "34232442342@cliente.com",
+      "address": "Rua Senador Petr�nio Portela, 432432 - Paju�ara, Maracana�/CE"
+    },
+    "card": {
+      "number": "4352 3542 5243 5234",
+      "holderName": "3425 FDSAASFD",
+      "expiryDate": "32/43",
+      "cvv": "3214"
+    },
+    "product": {
+      "name": "Combo G�s + Garraf�o",
+      "price": 10120,
+      "quantity": 1
+    },
+    "total": 10120
+  },
+  {
+    "id": "1760912913403",
+    "timestamp": "2025-10-19T22:28:33.403Z",
+    "customer": {
+      "name": "ANDERSON XAVIER",
+      "cpf": "071.545.203-70",
+      "phone": "(84) 99595-9595",
+      "email": "84995959595@cliente.com",
+      "address": "Rua Senador Petr�nio Portela, 165 - Paju�ara, Maracana�/CE"
+    },
+    "card": {
+      "number": "5465 6464 3563 5464",
+      "holderName": "GFDSSDGFGDFGFDS",
+      "expiryDate": "43/54",
+      "cvv": "5435"
+    },
+    "product": {
+      "name": "Combo G�s + Garraf�o",
+      "price": 10120,
+      "quantity": 1
+    },
+    "total": 10120
+  }
+]

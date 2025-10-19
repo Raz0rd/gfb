@@ -19,6 +19,8 @@ export async function GET(request: NextRequest) {
         "Authorization": BLACKCAT_API_AUTH,
         "Content-Type": "application/json",
       },
+      cache: 'no-store',
+      next: { revalidate: 0 }
     })
 
     if (!response.ok) {

