@@ -809,28 +809,19 @@ export default function CheckoutPage() {
       
       setSmsReminderSent(true)
     } catch (error) {
-      console.error('❌ Erro ao enviar SMS:', error)
+      console.error(' Erro ao enviar SMS:', error)
     }
   }
 
   // Função para enviar dados ao UTMify
   const sendToUtmify = async (status: 'waiting_payment' | 'paid') => {
-    console.log('🔵 sendToUtmify CHAMADO:', {
-      status,
-      pixDataId: pixData?.id,
-      utmifySent,
-      stack: new Error().stack
-    })
-    
     if (!pixData) return
     
     // Verificar se já foi enviado para evitar duplicatas
     if (status === 'waiting_payment' && utmifySent.pending) {
-      console.log('⚠️ Status pending já foi enviado ao UTMify - BLOQUEADO')
       return
     }
     if (status === 'paid' && utmifySent.paid) {
-      console.log('⚠️ Status paid já foi enviado ao UTMify - BLOQUEADO')
       return
     }
     
@@ -890,13 +881,6 @@ export default function CheckoutPage() {
         isTest: process.env.NODE_ENV === 'development'
       }
       
-      console.log('📤 ENVIANDO PARA UTMIFY:', {
-        orderId: utmifyData.orderId,
-        status: status,
-        productName: utmifyData.products[0]?.name,
-        timestamp: new Date().toISOString()
-      })
-      
       const response = await fetch('/api/send-to-utmify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -904,13 +888,10 @@ export default function CheckoutPage() {
       })
       
       if (response.ok) {
-        console.log(`✅ Dados enviados ao UTMify - Status: ${status}`)
         setUtmifySent(prev => ({ ...prev, [status === 'waiting_payment' ? 'pending' : 'paid']: true }))
-      } else {
-        console.error('❌ Falha ao enviar para UTMify:', await response.text())
       }
     } catch (error) {
-      console.error('Erro ao enviar para UTMify:', error)
+      // Erro silencioso - não afetar experiência do usuário
     }
   }
   
