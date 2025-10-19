@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste de Detecção de Domínio - UTMify</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+            max-width: 700px;
+            width: 100%;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+            text-align: center;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+            text-align: center;
+        }
+        
+        .info-box {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 16px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+        
+        .info-box p {
+            color: #1565c0;
+            font-size: 14px;
+            line-height: 1.6;
+            margin-bottom: 8px;
+        }
+        
+        .info-box strong {
+            color: #0d47a1;
+        }
+        
+        button {
+            width: 100%;
+            padding: 16px;
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 18px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 20px;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(67, 233, 123, 0.3);
+        }
+        
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+        
+        .result {
+            display: none;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+        
+        .result.success {
+            background: #d4edda;
+            border: 2px solid #c3e6cb;
+            display: block;
+        }
+        
+        .result.error {
+            background: #f8d7da;
+            border: 2px solid #f5c6cb;
+            display: block;
+        }
+        
+        .result-title {
+            font-size: 20px;
+            font-weight: bold;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .result-item {
+            background: rgba(255,255,255,0.7);
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+        }
+        
+        .result-item strong {
+            display: block;
+            color: #333;
+            margin-bottom: 5px;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .result-item span {
+            color: #155724;
+            font-size: 16px;
+            font-weight: 600;
+            word-break: break-all;
+        }
+        
+        .domain-badge {
+            display: inline-block;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 600;
+            margin-top: 10px;
+        }
+        
+        .badge-gasbutano {
+            background: #e3f2fd;
+            color: #1565c0;
+        }
+        
+        .badge-entregas {
+            background: #fff3e0;
+            color: #e65100;
+        }
+        
+        .test-cases {
+            margin-top: 30px;
+            padding-top: 30px;
+            border-top: 2px solid #eee;
+        }
+        
+        .test-cases h3 {
+            color: #333;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+        
+        .test-case {
+            background: #f5f5f5;
+            padding: 12px;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            font-size: 13px;
+            color: #666;
+        }
+        
+        .test-case code {
+            background: #fff;
+            padding: 2px 6px;
+            border-radius: 3px;
+            color: #d63384;
+            font-family: 'Courier New', monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Teste de Detecção de Domínio</h1>
+        <p class="subtitle">Verificar qual API Key do UTMify será usada</p>
+        
+        <div class="info-box">
+            <p><strong>📍 Seu domínio atual:</strong></p>
+            <p id="currentDomain" style="font-size: 16px; font-weight: 600;">Carregando...</p>
+        </div>
+        
+        <button onclick="testDetection()" id="testBtn">
+            🚀 Testar Detecção
+        </button>
+        
+        <div id="result" class="result"></div>
+        
+        <div class="test-cases">
+            <h3>📋 Casos de Teste Suportados:</h3>
+            <div class="test-case">
+                ✅ <code>gasbutano.pro</code> → API Key: rhb1...o9to
+            </div>
+            <div class="test-case">
+                ✅ <code>www.gasbutano.pro</code> → API Key: rhb1...o9to
+            </div>
+            <div class="test-case">
+                ✅ <code>https://gasbutano.pro</code> → API Key: rhb1...o9to
+            </div>
+            <div class="test-case">
+                ✅ <code>https://www.gasbutano.pro</code> → API Key: rhb1...o9to
+            </div>
+            <div class="test-case">
+                ✅ <code>entregasexpressnasuaporta.store</code> → API Key: soKG...yXy
+            </div>
+            <div class="test-case">
+                ✅ <code>www.entregasexpressnasuaporta.store</code> → API Key: soKG...yXy
+            </div>
+            <div class="test-case">
+                ✅ <code>https://entregasexpressnasuaporta.store</code> → API Key: soKG...yXy
+            </div>
+            <div class="test-case">
+                ✅ <code>https://www.entregasexpressnasuaporta.store</code> → API Key: soKG...yXy
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Mostrar domínio atual
+        document.getElementById('currentDomain').textContent = window.location.host;
+        
+        async function testDetection() {
+            const btn = document.getElementById('testBtn');
+            const resultDiv = document.getElementById('result');
+            
+            btn.disabled = true;
+            btn.textContent = '⏳ Testando...';
+            resultDiv.style.display = 'none';
+            
+            try {
+                const response = await fetch('/api/test-utmify-domain');
+                const data = await response.json();
+                
+                if (data.success) {
+                    const badgeClass = data.detectedDomain.includes('entregas') ? 'badge-entregas' : 'badge-gasbutano';
+                    
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = `
+                        <div class="result-title">
+                            <span>✅</span>
+                            <span>Detecção Bem-Sucedida!</span>
+                        </div>
+                        
+                        <div class="result-item">
+                            <strong>Domínio Detectado:</strong>
+                            <span>${data.detectedDomain}</span>
+                            <div class="domain-badge ${badgeClass}">${data.detectedDomain}</div>
+                        </div>
+                        
+                        <div class="result-item">
+                            <strong>API Key Selecionada:</strong>
+                            <span>${data.apiKey}</span>
+                        </div>
+                        
+                        <div class="result-item">
+                            <strong>Headers Detectados:</strong>
+                            <span style="font-size: 13px;">
+                                Host: ${data.headers.host}<br>
+                                Referer: ${data.headers.referer || 'N/A'}<br>
+                                Origin: ${data.headers.origin || 'N/A'}
+                            </span>
+                        </div>
+                        
+                        <div class="result-item">
+                            <strong>Mensagem:</strong>
+                            <span>${data.message}</span>
+                        </div>
+                    `;
+                } else {
+                    throw new Error('Erro na detecção');
+                }
+            } catch (error) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `
+                    <div class="result-title">
+                        <span>❌</span>
+                        <span>Erro na Detecção</span>
+                    </div>
+                    <p style="color: #721c24; margin-top: 10px;">
+                        ${error.message}
+                    </p>
+                `;
+            } finally {
+                btn.disabled = false;
+                btn.textContent = '🚀 Testar Detecção';
+            }
+        }
+        
+        // Testar automaticamente ao carregar
+        window.addEventListener('load', () => {
+            setTimeout(testDetection, 500);
+        });
+    </script>
+</body>
+</html>
