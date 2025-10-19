@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
+import LocationHeader from "@/components/LocationHeader"
 import { Input } from "@/components/ui/input"
 import { ShoppingCart, MapPin, Clock, Bike, Star, TrendingUp, HelpCircle, CheckCircle } from "lucide-react"
 import { useState, useEffect } from "react"
@@ -57,10 +58,16 @@ export default function HomePage() {
   
   // Estado para localização do usuário
   const [userLocation, setUserLocation] = useState({
-    city: "Barreiro, Contagem e região metropolitana",
+    city: "",
     state: "",
-    loading: false
+    loading: true,
+    confirmed: false
   })
+  
+  // Estado para controlar modal de localização
+  const [showLocationModal, setShowLocationModal] = useState(false)
+  const [editingLocation, setEditingLocation] = useState(false)
+  const [tempCity, setTempCity] = useState("")
   
   // Estado para controlar estoque em tempo real
   const [stock, setStock] = useState<StockData>({
@@ -91,13 +98,17 @@ export default function HomePage() {
       localStorage.setItem('utm-params', JSON.stringify(utmParams))
     }
     
-    const hasVisited = localStorage.getItem("configas-visited")
-    if (!hasVisited) {
-      setShowCepModal(true)
-    }
-    
-    // Solicitar localização do usuário para melhor experiência
+    // Solicitar localização do usuário automaticamente
     requestUserLocation()
+    
+    // Verificar se já confirmou localização anteriormente
+    const confirmedLocation = localStorage.getItem("location-confirmed")
+    if (confirmedLocation !== "true") {
+      // Se não confirmou, mostrar modal após carregar localização
+      setTimeout(() => {
+        setShowLocationModal(true)
+      }, 1000) // Aguardar 1 segundo para carregar localização
+    }
   }, [])
 
   // Função para solicitar localização do usuário
@@ -106,8 +117,8 @@ export default function HomePage() {
     const savedLocation = localStorage.getItem("user-location")
     if (savedLocation) {
       try {
-        const { city, state } = JSON.parse(savedLocation)
-        setUserLocation({ city, state, loading: false })
+        const { city, state, confirmed } = JSON.parse(savedLocation)
+        setUserLocation({ city, state, loading: false, confirmed: confirmed || false })
         return
       } catch (error) {
         console.log("Erro ao carregar localização salva:", error)
@@ -136,32 +147,135 @@ export default function HomePage() {
               setUserLocation({
                 city: city,
                 state: state,
-                loading: false
+                loading: false,
+                confirmed: false
               })
               
-              // Salvar no localStorage para próximas visitas (apenas localização real)
-              localStorage.setItem("user-location", JSON.stringify({ city, state }))
+              setTempCity(city)
               return
             }
           } catch (error) {
             console.log("Erro ao obter localização por GPS:", error)
           }
           
-          // Se falhou, manter localização padrão
-          setUserLocation(prev => ({ ...prev, loading: false }))
+          // Se falhou, usar localização padrão
+          setUserLocation({
+            city: "Barreiro, Contagem e região",
+            state: "MG",
+            loading: false,
+            confirmed: false
+          })
+          setTempCity("Barreiro, Contagem e região")
         },
         (error) => {
           console.log("Geolocalização negada ou erro:", error)
-          // Se geolocalização falhou, manter localização padrão
-          setUserLocation(prev => ({ ...prev, loading: false }))
+          // Se geolocalização falhou, usar localização padrão
+          setUserLocation({
+            city: "Barreiro, Contagem e região",
+            state: "MG",
+            loading: false,
+            confirmed: false
+          })
+          setTempCity("Barreiro, Contagem e região")
         },
         {
           timeout: 10000,
           enableHighAccuracy: false
         }
       )
+    } else {
+      // Se geolocalização não disponível, usar localização padrão
+      setUserLocation({
+        city: "Barreiro, Contagem e região",
+        state: "MG",
+        loading: false,
+        confirmed: false
+      })
+      setTempCity("Barreiro, Contagem e região")
     }
-    // Se geolocalização não disponível, mantém localização padrão
+  }
+  
+  // Função para confirmar localização
+  const confirmLocation = () => {
+    // Gerar tempo de entrega aleatório entre 10-30 minutos
+    const time = Math.floor(Math.random() * 21) + 10
+    const deliveryTime = `${time} minutos`
+    
+    const locationData = {
+      city: userLocation.city,
+      state: userLocation.state,
+      confirmed: true,
+      deliveryTime: deliveryTime
+    }
+    
+    setUserLocation(prev => ({ ...prev, confirmed: true }))
+    localStorage.setItem("user-location", JSON.stringify(locationData))
+    localStorage.setItem("location-confirmed", "true")
+    setShowLocationModal(false)
+    
+    // Disparar evento customizado para atualizar LocationHeader
+    console.log('🔄 Disparando evento locationUpdated')
+    window.dispatchEvent(new CustomEvent('locationUpdated', { 
+      detail: locationData 
+    }))
+    
+    // Forçar refresh visual imediato
+    setTimeout(() => {
+      window.dispatchEvent(new Event('storage'))
+    }, 100)
+  }
+  
+  // Função para editar localização
+  const handleEditLocation = () => {
+    setEditingLocation(true)
+    setTempCity(userLocation.city)
+  }
+  
+  // Função para salvar localização editada
+  const saveEditedLocation = () => {
+    if (tempCity.trim()) {
+      // Gerar tempo de entrega aleatório entre 10-30 minutos
+      const time = Math.floor(Math.random() * 21) + 10
+      const deliveryTime = `${time} minutos`
+      
+      const locationData = {
+        city: tempCity.trim(),
+        state: userLocation.state,
+        confirmed: true,
+        deliveryTime: deliveryTime
+      }
+      
+      setUserLocation({
+        city: tempCity.trim(),
+        state: userLocation.state,
+        loading: false,
+        confirmed: true
+      })
+      
+      localStorage.setItem("user-location", JSON.stringify(locationData))
+      localStorage.setItem("location-confirmed", "true")
+      setEditingLocation(false)
+      setShowLocationModal(false)
+      
+      // Disparar evento customizado para atualizar LocationHeader
+      console.log('🔄 Disparando evento locationUpdated (edição)')
+      window.dispatchEvent(new CustomEvent('locationUpdated', { 
+        detail: locationData 
+      }))
+      
+      // Forçar refresh visual imediato
+      setTimeout(() => {
+        window.dispatchEvent(new Event('storage'))
+      }, 100)
+    }
+  }
+  
+  // Função para calcular tempo de entrega estimado
+  const getDeliveryTime = () => {
+    // Aqui você pode adicionar lógica mais complexa baseada na cidade
+    // Por enquanto, retorna um tempo aleatório entre 15-30 minutos
+    const times = ["15 a 20", "20 a 25", "15 a 30", "20 a 30"]
+    return times[Math.floor(Math.random() * times.length)]
   }
 
   // Diminuir estoque a cada 5 minutos
@@ -537,8 +651,115 @@ export default function HomePage() {
         </DialogContent>
       </Dialog>
 
+      {/* Modal de Localização */}
+      <Dialog open={showLocationModal} onOpenChange={setShowLocationModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-center text-xl font-bold text-gray-800 flex items-center justify-center gap-2">
+              <MapPin className="w-6 h-6 text-green-600" />
+              Confirme sua Localização
+            </DialogTitle>
+            <DialogDescription className="text-center text-gray-600">
+              Para oferecer o melhor serviço, precisamos confirmar sua região
+            </DialogDescription>
+          </DialogHeader>
+          
+          {userLocation.loading ? (
+            <div className="py-8">
+              <div className="flex flex-col items-center justify-center gap-3">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-green-600"></div>
+                <p className="text-sm font-semibold text-gray-700">📍 Detectando sua localização...</p>
+                <p className="text-xs text-gray-500">Isso pode levar alguns segundos</p>
+              </div>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {!editingLocation ? (
+                <>
+                  <div className="bg-green-50 border-2 border-green-200 rounded-lg p-4">
+                    <div className="flex items-center gap-3 mb-3">
+                      <MapPin className="w-8 h-8 text-green-600" />
+                      <div>
+                        <p className="text-sm text-gray-600">Localização detectada:</p>
+                        <p className="text-lg font-bold text-gray-800">
+                          {userLocation.city}
+                          {userLocation.state && ` - ${userLocation.state}`}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="bg-blue-50 border border-blue-200 rounded p-3">
+                      <p className="text-xs text-blue-800">
+                        ⚡ <strong>Tempo de entrega estimado:</strong> {getDeliveryTime()} minutos
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="flex gap-3">
+                    <Button
+                      onClick={confirmLocation}
+                      className="flex-1 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-semibold"
+                    >
+                      ✓ Confirmar Localização
+                    </Button>
+                    <Button
+                      onClick={handleEditLocation}
+                      variant="outline"
+                      className="px-6"
+                    >
+                      Alterar
+                    </Button>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Digite sua cidade:
+                    </label>
+                    <Input
+                      type="text"
+                      value={tempCity}
+                      onChange={(e) => setTempCity(e.target.value)}
+                      placeholder="Ex: Belo Horizonte"
+                      className="text-gray-800"
+                      onKeyPress={(e) => {
+                        if (e.key === 'Enter') {
+                          saveEditedLocation()
+                        }
+                      }}
+                    />
+                  </div>
+                  <div className="flex gap-3">
+                    <Button
+                      onClick={saveEditedLocation}
+                      className="flex-1 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-semibold"
+                      disabled={!tempCity.trim()}
+                    >
+                      Salvar
+                    </Button>
+                    <Button
+                      onClick={() => {
+                        setEditingLocation(false)
+                        setTempCity(userLocation.city)
+                      }}
+                      variant="outline"
+                      className="px-6"
+                    >
+                      Cancelar
+                    </Button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+      
+      {/* Header Fixo de Localização */}
+      <LocationHeader />
+
       {/* Header */}
-      <header className="bg-white shadow-md sticky top-0 z-50">
+      <header className="bg-white shadow-md sticky top-0 z-40">
         <div className="container mx-auto px-4 py-3 flex items-center justify-between">
           <div className="flex items-center">
             <img

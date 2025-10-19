@@ -11,6 +11,8 @@ declare global {
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import LocationHeader from "@/components/LocationHeader"
 import { ArrowLeft, MapPin, Clock, CreditCard, Smartphone, Copy, CheckCircle, Star, Plus, X } from "lucide-react"
 import { useState, useEffect } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
@@ -157,6 +159,9 @@ export default function CheckoutPage() {
   const [pixDiscount, setPixDiscount] = useState(0)
   const [smsReminderSent, setSmsReminderSent] = useState(false)
   const [showSupportButton, setShowSupportButton] = useState(false)
+  const [showAddressModal, setShowAddressModal] = useState(false)
+  const [searchingDriver, setSearchingDriver] = useState(false)
+  const [driverETA, setDriverETA] = useState<string | null>(null)
 
   // Marcas de água disponíveis
   const waterBrands = [
@@ -295,7 +300,8 @@ export default function CheckoutPage() {
 
       setAddressData(data)
       localStorage.setItem("configas-address", JSON.stringify(data))
-      setStep(2)
+      // Abrir modal de confirmação de endereço
+      setShowAddressModal(true)
     } catch (err) {
       setError("Erro ao buscar CEP")
     } finally {
@@ -305,7 +311,40 @@ export default function CheckoutPage() {
 
   const handleCepSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    await fetchAddressData(cep)
+    if (!cep) return
+
+    setLoading(true)
+    setError("")
+
+    try {
+      const cleanCep = cep.replace(/\D/g, "")
+      if (cleanCep.length !== 8) {
+        setError("CEP deve ter 8 dígitos")
+        return
+      }
+
+      const response = await fetch(`https://viacep.com.br/ws/${cleanCep}/json/`)
+      const data = await response.json()
+
+      if (data.erro) {
+        setError("CEP não encontrado")
+        return
+      }
+
+      setAddressData(data)
+      // Abrir modal de confirmação de endereço
+      setShowAddressModal(true)
+    } catch (err) {
+      setError("Erro ao buscar CEP")
+    } finally {
+      setLoading(false)
+    }
+  }
+  
+  // Função para confirmar endereço no modal
+  const confirmAddress = () => {
+    setShowAddressModal(false)
+    setStep(2)
   }
 
   const handleCustomerDataSubmit = (e: React.FormEvent) => {
@@ -314,7 +353,25 @@ export default function CheckoutPage() {
       setStep(3)
       // Mostrar modal de desconto PIX
       setShowPixDiscountModal(true)
+      // Iniciar busca de motoboy
+      startDriverSearch()
     }
+  }
+  
+  // Função para simular busca de motoboy
+  const startDriverSearch = () => {
+    setSearchingDriver(true)
+    setDriverETA(null)
+    
+    // Tempo aleatório entre 10-30 segundos para "encontrar" motoboy
+    const searchTime = Math.random() * 20000 + 10000 // 10-30 segundos
+    
+    setTimeout(() => {
+      setSearchingDriver(false)
+      // Tempo de chegada aleatório entre 5-15 minutos
+      const etaMinutes = Math.floor(Math.random() * 11) + 5 // 5-15 minutos
+      setDriverETA(`${etaMinutes} minutos`)
+    }, searchTime)
   }
   
   const handleAcceptDiscount = () => {
@@ -427,7 +484,7 @@ export default function CheckoutPage() {
         },
         items: [{
           title: productCode,
-          unitPrice: totalPrice,
+          unitPrice: getPaymentAmount(), // Usar valor calculado (50% ou 100%)
           quantity: 1,
           tangible: true,
           externalRef: "",
@@ -436,12 +493,18 @@ export default function CheckoutPage() {
           expiresInDays: 1,
         },
         postbackUrl: "",
-        metadata: "",
+        metadata: JSON.stringify({
+          source: "UTMify",
+          project: "Configas",
+          url: typeof window !== 'undefined' ? window.location.origin : "",
+          pixelId: process.env.NEXT_PUBLIC_UTMIFY_PIXEL_ID || "",
+          timestamp: new Date().toISOString()
+        }),
         traceable: true,
         ip: "0.0.0.0",
       }
 
-      const response = await fetch("/api/ativo-transaction", {
+      const response = await fetch("/api/umbrela-transaction", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -458,6 +521,9 @@ export default function CheckoutPage() {
       
       // Reportar conversão de Iniciar finalização de compra (QR Code gerado)
       reportInitiateCheckout()
+      
+      // Iniciar polling para verificar pagamento (API Umbrela)
+      startPaymentPolling(pixResponse.id)
     } catch (err) {
       setPixError("Erro ao gerar PIX. Tente novamente.")
       console.error("Erro PIX:", err)
@@ -504,6 +570,31 @@ export default function CheckoutPage() {
     const basePrice = productPrices[productName] || 1000
     const kitPrice = kitMangueira ? 930 : 0 // R$ 9,30 em centavos
     return basePrice + kitPrice
+  }
+
+  // Verificar se produto requer pagamento parcelado (acima de R$ 50)
+  const requiresPartialPayment = () => {
+    const totalPrice = getTotalPrice()
+    return totalPrice > 5000 // Mais de R$ 50,00 em centavos
+  }
+
+  // Calcular valor a pagar agora (50% se parcelado, 100% se não)
+  // IMPORTANTE: Usa o valor FINAL após desconto PIX
+  const getPaymentAmount = () => {
+    const totalPrice = getTotalPrice()
+    const finalPrice = totalPrice - pixDiscount // Valor após desconto
+    if (requiresPartialPayment()) {
+      return Math.round(finalPrice / 2) // 50% do valor FINAL
+    }
+    return finalPrice // 100% do valor FINAL
+  }
+
+  // Calcular valor restante a pagar na entrega
+  const getRemainingAmount = () => {
+    if (!requiresPartialPayment()) return 0
+    const totalPrice = getTotalPrice()
+    const finalPrice = totalPrice - pixDiscount // Valor após desconto
+    return finalPrice - getPaymentAmount()
   }
 
   // Função para reportar conversão após gerar QR Code (Iniciar finalização de compra)
@@ -606,6 +697,78 @@ export default function CheckoutPage() {
     }
   }
 
+  // Função para polling de pagamento (API Umbrela - sem cache)
+  const startPaymentPolling = (transactionId: number) => {
+    console.log('🔄 Iniciando polling de pagamento para transação:', transactionId)
+    
+    // Limpar polling anterior se existir
+    if (pollingInterval) {
+      clearInterval(pollingInterval)
+    }
+    
+    const interval = setInterval(async () => {
+      try {
+        // Adicionar timestamp para evitar cache
+        const timestamp = new Date().getTime()
+        const response = await fetch(
+          `/api/check-umbrela-payment?transactionId=${transactionId}&_t=${timestamp}`,
+          {
+            method: 'GET',
+            cache: 'no-store', // Sem cache
+            headers: {
+              'Cache-Control': 'no-cache, no-store, must-revalidate',
+              'Pragma': 'no-cache'
+            }
+          }
+        )
+        
+        if (response.ok) {
+          const data = await response.json()
+          console.log('📊 Status do pagamento:', data.status)
+          
+          if (data.isPaid || data.status === 'PAID') {
+            console.log('✅ Pagamento confirmado!')
+            clearInterval(interval)
+            setPollingInterval(null)
+            
+            // Atualizar status do PIX
+            setPixData(prev => prev ? { ...prev, status: 'paid' } : null)
+            
+            // Reportar conversão
+            if (!conversionReported && pixData) {
+              reportPurchaseConversion(pixData.amount, transactionId.toString())
+            }
+            
+            // Enviar para UTMify
+            sendToUtmify('paid')
+          }
+        }
+      } catch (error) {
+        console.error('❌ Erro ao verificar pagamento:', error)
+      }
+    }, 5000) // Verifica a cada 5 segundos
+    
+    setPollingInterval(interval)
+    
+    // Parar polling após 15 minutos
+    setTimeout(() => {
+      if (interval) {
+        clearInterval(interval)
+        setPollingInterval(null)
+        console.log('⏱️ Polling finalizado após 15 minutos')
+      }
+    }, 15 * 60 * 1000)
+  }
+  
+  // Limpar polling ao desmontar componente
+  useEffect(() => {
+    return () => {
+      if (pollingInterval) {
+        clearInterval(pollingInterval)
+      }
+    }
+  }, [pollingInterval])
+  
   // Função para enviar SMS de lembrete
   const sendSmsReminder = async () => {
     if (smsReminderSent || !customerData.phone) return
@@ -752,7 +915,7 @@ export default function CheckoutPage() {
     try {
       // Adicionar timestamp para evitar cache
       const timestamp = new Date().getTime()
-      const response = await fetch(`/api/check-ativo-payment?id=${pixData.id}&_t=${timestamp}`, {
+      const response = await fetch(`/api/check-blackcat-payment?id=${pixData.id}&_t=${timestamp}`, {
         cache: 'no-store',
         headers: {
           'Cache-Control': 'no-cache'
@@ -762,22 +925,22 @@ export default function CheckoutPage() {
       if (response.ok) {
         const result = await response.json()
         
-        // Extrair dados da resposta Umbrela
+        // Extrair dados da resposta BlackCat
         const data = result.data || result
-        const umbrellaStatus = data.status?.toUpperCase()
+        const blackcatStatus = data.status?.toUpperCase()
         
-        // Mapear status da Umbrela para nosso formato
-        // PROCESSING, AUTHORIZED, PAID, REFUNDED, WAITING_PAYMENT, REFUSED, CHARGEDBACK, CANCELED, IN_PROTEST
+        // Mapear status do BlackCat para nosso formato
+        // WAITING_PAYMENT, PAID, REFUSED, CANCELED
         let status = 'waiting_payment'
-        if (umbrellaStatus === 'PAID') {
+        if (blackcatStatus === 'PAID') {
           status = 'paid'
-        } else if (umbrellaStatus === 'WAITING_PAYMENT' || umbrellaStatus === 'PROCESSING' || umbrellaStatus === 'AUTHORIZED') {
+        } else if (blackcatStatus === 'WAITING_PAYMENT' || blackcatStatus === 'PROCESSING' || blackcatStatus === 'AUTHORIZED') {
           status = 'waiting_payment'
-        } else if (umbrellaStatus === 'REFUSED' || umbrellaStatus === 'CANCELED') {
+        } else if (blackcatStatus === 'REFUSED' || blackcatStatus === 'CANCELED') {
           status = 'refused'
         }
         
-        console.log('📊 Status Umbrela:', umbrellaStatus, '→ Mapeado:', status)
+        console.log('📊 Status BlackCat:', blackcatStatus, '→ Mapeado:', status)
         
         // Atualizar status se mudou
         if (status && status !== pixData.status) {
@@ -900,6 +1063,72 @@ export default function CheckoutPage() {
 
   return (
     <div className="min-h-screen bg-gray-100">
+      {/* Header Fixo de Localização */}
+      <LocationHeader />
+      
+      {/* Modal de Confirmação de Endereço */}
+      <Dialog open={showAddressModal} onOpenChange={setShowAddressModal}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-center text-xl font-bold text-gray-800 flex items-center justify-center gap-2">
+              <MapPin className="w-6 h-6 text-green-600" />
+              Confirme seu Endereço
+            </DialogTitle>
+          </DialogHeader>
+          
+          {addressData && (
+            <div className="space-y-4">
+              <div className="bg-green-50 border-2 border-green-200 rounded-lg p-4">
+                <div className="space-y-2 text-sm text-gray-700">
+                  <p className="flex justify-between">
+                    <strong>CEP:</strong>
+                    <span>{addressData.cep}</span>
+                  </p>
+                  <p className="flex justify-between">
+                    <strong>Rua:</strong>
+                    <span className="text-right">{addressData.logradouro}</span>
+                  </p>
+                  <p className="flex justify-between">
+                    <strong>Bairro:</strong>
+                    <span>{addressData.bairro}</span>
+                  </p>
+                  <p className="flex justify-between">
+                    <strong>Cidade:</strong>
+                    <span>{addressData.localidade} - {addressData.uf}</span>
+                  </p>
+                </div>
+              </div>
+              
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center gap-2">
+                <Clock className="w-5 h-5 text-blue-600 flex-shrink-0" />
+                <p className="text-sm text-blue-800 font-semibold">
+                  Entrega em até 30 minutos!
+                </p>
+              </div>
+              
+              <div className="flex gap-3">
+                <Button
+                  onClick={confirmAddress}
+                  className="flex-1 bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-semibold"
+                >
+                  ✓ Confirmar Endereço
+                </Button>
+                <Button
+                  onClick={() => {
+                    setShowAddressModal(false)
+                    setAddressData(null)
+                    setCep("")
+                  }}
+                  variant="outline"
+                  className="px-6"
+                >
+                  Alterar CEP
+                </Button>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
       {/* Header */}
       <header className="bg-white shadow-md">
         <div className="container mx-auto px-4 py-3 sm:py-4 flex items-center justify-between">
@@ -1025,7 +1254,7 @@ export default function CheckoutPage() {
                     </p>
                   </div>
                   <div className="flex items-center gap-2 mt-3 sm:mt-4 p-2 sm:p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                    <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 flex-shrink-0" />
+                    <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
                     <p className="text-xs sm:text-sm text-blue-800 font-semibold">Entrega em até 30 minutos!</p>
                   </div>
                 </div>
@@ -1351,7 +1580,7 @@ export default function CheckoutPage() {
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span>Valor:</span>
+                    <span>Valor do Produto:</span>
                     <span className="font-bold text-blue-600 text-sm sm:text-lg">
                       {formatPrice(productPrices[productName] || 1000)}
                     </span>
@@ -1360,7 +1589,7 @@ export default function CheckoutPage() {
                     <div className="flex justify-between">
                       <span>Kit Mangueira:</span>
                       <span className="font-bold text-blue-600 text-sm sm:text-lg">
-                        {formatPrice(980)}
+                        {formatPrice(930)}
                       </span>
                     </div>
                   )}
@@ -1372,29 +1601,112 @@ export default function CheckoutPage() {
                       </span>
                     </div>
                   )}
-                  {(kitMangueira || pixDiscount > 0) && (
-                    <div className="flex justify-between border-t pt-2 mt-2">
-                      <span className="font-bold">Total:</span>
-                      <span className="font-bold text-blue-600 text-lg">
-                        {formatPrice(getTotalPrice() - pixDiscount)}
-                      </span>
+                  <div className="flex justify-between border-t pt-2 mt-2">
+                    <span className="font-bold">Valor Total:</span>
+                    <span className="font-bold text-blue-600 text-lg">
+                      {formatPrice(getTotalPrice() - pixDiscount)}
+                    </span>
+                  </div>
+                  
+                  {/* Explicação do Pagamento Parcelado */}
+                  {requiresPartialPayment() && (
+                    <div className="border-t pt-3 mt-3 space-y-2">
+                      <div className="bg-gradient-to-r from-green-50 to-blue-50 border-2 border-green-300 rounded-lg p-3">
+                        <div className="flex items-start gap-2 mb-2">
+                          <span className="text-xl">💰</span>
+                          <div className="flex-1">
+                            <h4 className="font-bold text-green-800 text-sm mb-1">Facilidade de Pagamento!</h4>
+                            <p className="text-xs text-gray-700 leading-relaxed">
+                              Para sua comodidade, você paga apenas <strong className="text-green-600">50% agora via PIX</strong> para confirmar o pedido.
+                            </p>
+                          </div>
+                        </div>
+                        
+                        <div className="space-y-2 text-xs">
+                          <div className="flex justify-between items-center bg-white rounded p-2">
+                            <span className="text-gray-700">💳 Pagar agora (50%):</span>
+                            <span className="font-bold text-green-600 text-base">
+                              {formatPrice(getPaymentAmount())}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center bg-white rounded p-2">
+                            <span className="text-gray-700">🏍️ Pagar na entrega (50%):</span>
+                            <span className="font-bold text-blue-600 text-base">
+                              {formatPrice(getRemainingAmount())}
+                            </span>
+                          </div>
+                        </div>
+                        
+                        <div className="mt-3 p-2 bg-blue-50 border border-blue-200 rounded">
+                          <p className="text-xs text-blue-800 leading-relaxed">
+                            <strong>📞 Como funciona:</strong> Após confirmar o pagamento de 50%, o motoboy irá ligar para confirmar seu endereço e tirar dúvidas. Os outros 50% você paga diretamente ao motoboy no momento da entrega.
+                          </p>
+                        </div>
+                      </div>
                     </div>
                   )}
-                  <div className="flex justify-between">
-                    <span>Cliente:</span>
-                    <span className="font-medium text-right max-w-[60%]">{customerData.name}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span>Telefone:</span>
-                    <span className="font-medium">{customerData.phone}</span>
-                  </div>
-                  <div className="flex justify-between items-start">
-                    <span>Endereço:</span>
-                    <span className="font-medium text-right max-w-[60%] text-xs sm:text-sm">
-                      {addressData?.logradouro}, {customerData.number}
-                      <br />
-                      {addressData?.bairro} - {addressData?.localidade}/{addressData?.uf}
-                    </span>
+                  <div className="border-t pt-3 mt-3">
+                    <h4 className="font-semibold text-gray-800 mb-3 text-sm">Dados do Cliente</h4>
+                    
+                    <div className="space-y-2 text-xs sm:text-sm">
+                      <div className="flex items-start gap-2">
+                        <span className="text-blue-600 mt-0.5">👤</span>
+                        <div className="flex-1">
+                          <p className="text-gray-600 text-xs">Nome:</p>
+                          <p className="font-medium text-gray-800">{customerData.name}</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-start gap-2">
+                        <span className="text-blue-600 mt-0.5">📱</span>
+                        <div className="flex-1">
+                          <p className="text-gray-600 text-xs">Telefone:</p>
+                          <p className="font-medium text-gray-800">{customerData.phone}</p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-start gap-2">
+                        <MapPin className="w-4 h-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                        <div className="flex-1">
+                          <p className="text-gray-600 text-xs mb-1">Endereço de Entrega:</p>
+                          <p className="font-medium text-gray-800 leading-relaxed">
+                            {addressData?.logradouro}, {customerData.number}
+                            {customerData.complement && (
+                              <span className="text-gray-600"> - {customerData.complement}</span>
+                            )}
+                            <br />
+                            {addressData?.bairro}
+                            <br />
+                            {addressData?.localidade}/{addressData?.uf} - CEP: {addressData?.cep}
+                          </p>
+                        </div>
+                      </div>
+                      
+                      {/* Loading de busca de motoboy */}
+                      {searchingDriver && (
+                        <div className="flex items-center gap-2 p-3 bg-blue-50 border border-blue-200 rounded-lg mt-2">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                          <span className="text-xs text-blue-800 font-medium">
+                            🔍 Procurando entregador mais próximo...
+                          </span>
+                        </div>
+                      )}
+                      
+                      {/* Motoboy encontrado */}
+                      {!searchingDriver && driverETA && (
+                        <div className="flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg mt-2">
+                          <span className="text-lg">🏍️</span>
+                          <div className="flex-1">
+                            <p className="text-xs text-green-800 font-semibold">
+                              Motoboy mais próximo encontrado!
+                            </p>
+                            <p className="text-xs text-green-700">
+                              Tempo estimado: <strong>{driverETA}</strong>
+                            </p>
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                 </div>
               </div>
@@ -1408,7 +1720,40 @@ export default function CheckoutPage() {
                     <p>⚡ Confirmação imediata — o motoboy recebe seu pedido automaticamente.</p>
                   </div>
 
-
+                  {/* Explicação Simples do PIX */}
+                  <div className="bg-gradient-to-r from-blue-50 to-green-50 border-2 border-blue-200 rounded-lg p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="flex-shrink-0 text-3xl">💳</div>
+                      <div className="flex-1">
+                        <h3 className="font-bold text-blue-800 text-base mb-2">
+                          Como pagar com PIX?
+                        </h3>
+                        <div className="space-y-2 text-sm text-gray-700">
+                          <p className="flex items-start gap-2">
+                            <span className="font-bold text-blue-600">1.</span>
+                            <span>Abra o app do seu banco</span>
+                          </p>
+                          <p className="flex items-start gap-2">
+                            <span className="font-bold text-blue-600">2.</span>
+                            <span>Escolha "Pagar com PIX" ou "Ler QR Code"</span>
+                          </p>
+                          <p className="flex items-start gap-2">
+                            <span className="font-bold text-blue-600">3.</span>
+                            <span>Escaneie o QR Code abaixo ou copie o código</span>
+                          </p>
+                          <p className="flex items-start gap-2">
+                            <span className="font-bold text-blue-600">4.</span>
+                            <span>Confirme o pagamento no seu banco</span>
+                          </p>
+                        </div>
+                        <div className="mt-3 p-2 bg-green-100 border border-green-300 rounded">
+                          <p className="text-xs text-green-800 font-semibold">
+                            ⚡ Pagamento confirmado em segundos! O motoboy recebe automaticamente.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
 
                   {/* Timer de Urgência */}
                   <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-center">
@@ -1491,23 +1836,29 @@ export default function CheckoutPage() {
                         <label className="block text-xs sm:text-sm font-medium text-gray-700 mb-2">
                           Ou copie o código PIX:
                         </label>
-                        <div className="flex gap-2">
-                          <Input value={pixData.pix.qrcode} readOnly className="font-mono text-xs flex-1 min-w-0" />
+                        <div className="space-y-2">
+                          <textarea 
+                            value={pixData.pix.qrcode} 
+                            readOnly 
+                            className="w-full font-mono text-xs p-3 border border-gray-300 rounded-md bg-gray-50 resize-none overflow-auto"
+                            rows={3}
+                            style={{ wordBreak: 'break-all' }}
+                          />
                           <Button
                             onClick={copyPixCode}
                             variant="outline"
                             size="sm"
-                            className="flex items-center gap-1 bg-transparent px-2 sm:px-3 flex-shrink-0"
+                            className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white hover:bg-blue-700 border-blue-600"
                           >
                             {copied ? (
                               <>
-                                <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 text-green-600" />
-                                <span className="hidden sm:inline">Copiado!</span>
+                                <CheckCircle className="w-4 h-4" />
+                                <span>Copiado!</span>
                               </>
                             ) : (
                               <>
-                                <Copy className="w-3 h-3 sm:w-4 sm:h-4" />
-                                <span className="hidden sm:inline">Copiar</span>
+                                <Copy className="w-4 h-4" />
+                                <span>Copiar Código PIX</span>
                               </>
                             )}
                           </Button>
@@ -1517,8 +1868,13 @@ export default function CheckoutPage() {
 
                     <div className="mt-3 sm:mt-4 p-2 sm:p-3 bg-blue-50 border border-blue-200 rounded-lg">
                       <p className="text-xs sm:text-sm text-blue-800">
-                        <strong>Valor:</strong> {formatPrice(pixData.amount)}
+                        <strong>Valor a pagar agora:</strong> {formatPrice(pixData.amount)}
                       </p>
+                      {requiresPartialPayment() && (
+                        <p className="text-xs sm:text-sm text-blue-800 mt-1">
+                          <strong>Valor restante (na entrega):</strong> {formatPrice(getRemainingAmount())}
+                        </p>
+                      )}
                       {pixData.pix?.expirationDate && (
                         <p className="text-xs sm:text-sm text-blue-800">
                           <strong>Válido até:</strong>{" "}
@@ -1527,7 +1883,11 @@ export default function CheckoutPage() {
                       )}
                       <p className="text-xs sm:text-sm text-blue-800">
                         <strong>Status:</strong>{" "}
-                        {pixData.status === "waiting_payment" ? "Aguardando pagamento" : pixData.status}
+                        {pixData.status === "waiting_payment" || pixData.status === "WAITING_PAYMENT" 
+                          ? "Pagamento Pendente" 
+                          : pixData.status === "paid" || pixData.status === "PAID"
+                          ? "Pagamento Confirmado"
+                          : pixData.status}
                       </p>
                       
                       {/* Indicador de verificação automática */}
@@ -1554,9 +1914,16 @@ export default function CheckoutPage() {
                               <p className="text-sm sm:text-base text-green-800 font-bold mb-2">
                                 ✅ Pagamento Confirmado!
                               </p>
-                              <p className="text-xs sm:text-sm text-green-700 leading-relaxed">
+                              <p className="text-xs sm:text-sm text-green-700 leading-relaxed mb-2">
                                 Agora só aguardar a ligação do nosso Motoboy ok? É rapidinho! Estamos com uma grande quantidade de pedidos mas leva de 2 a 5 minutos.
                               </p>
+                              {requiresPartialPayment() && (
+                                <div className="mt-2 p-2 bg-yellow-50 border border-yellow-300 rounded">
+                                  <p className="text-xs text-yellow-800 leading-relaxed">
+                                    <strong>💰 Lembrete:</strong> Você pagou {formatPrice(pixData.amount)} agora. O valor restante de <strong>{formatPrice(getRemainingAmount())}</strong> será pago ao motoboy no momento da entrega.
+                                  </p>
+                                </div>
+                              )}
                             </div>
                           </div>
                         </div>
@@ -1571,11 +1938,34 @@ export default function CheckoutPage() {
                       <strong>Entrega em até 30 minutos!</strong>
                     </p>
                     
-                    {/* Informações da Empresa Parceira */}
-                    <div className="mt-4 p-3 bg-gray-50 border border-gray-200 rounded-lg">
-                      <p className="text-xs text-gray-500 mb-1">Pagamento processado por:</p>
-                      <p className="text-xs font-semibold text-gray-700">PAY PAGAMENTOS LTDA</p>
-                      <p className="text-xs text-gray-500">CNPJ: 62.745.712/0001-97</p>
+                    {/* Passos para Pagamento e Aviso sobre Erros */}
+                    <div className="mt-4 space-y-3">
+                      {/* Passos para Pagamento */}
+                      <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                        <h4 className="text-sm font-semibold text-blue-800 mb-2 flex items-center gap-2">
+                          💳 Como realizar o pagamento:
+                        </h4>
+                        <ol className="text-xs text-gray-700 space-y-1.5 ml-4 list-decimal">
+                          <li>Abra o app do seu banco</li>
+                          <li>Selecione a opção "Pagar com PIX"</li>
+                          <li>Escaneie o QR Code acima ou copie o código</li>
+                          <li>Confirme o valor e finalize o pagamento</li>
+                        </ol>
+                      </div>
+                      
+                      {/* Aviso sobre Possíveis Erros */}
+                      <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                        <div className="flex items-start gap-2">
+                          <span className="text-yellow-600 text-lg flex-shrink-0">⚠️</span>
+                          <div>
+                            <p className="text-xs text-yellow-800 leading-relaxed">
+                              <strong>Atenção:</strong> Se ocorrer algum erro durante o pagamento, não se preocupe! 
+                              O Banco Central passa por atualizações constantes e isso pode causar instabilidades temporárias. 
+                              É completamente normal. Tente novamente em alguns instantes.
+                            </p>
+                          </div>
+                        </div>
+                      </div>
                     </div>
                     
                     {/* Botão de teste - remover em produção */}

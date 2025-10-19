@@ -22,6 +22,12 @@ NEXT_PUBLIC_GOOGLE_ADS_INITIATE_CHECKOUT=AW-17545933033/dfuaCPPBjakbEOnhxq5B
 NEXT_PUBLIC_GOOGLE_ADS_CONVERSION=AW-17545933033/08VqCI_Qj5obEOnhxq5B
 
 
+# ───────────────────────────────────────────────────────────────────────────────
+# 4. GATEWAY DE PAGAMENTO: BLACKCAT
+# ───────────────────────────────────────────────────────────────────────────────
+BLACKCAT_API_AUTH=Basic cGtfMERsc0F6eHhOVmpiVUVXMWs0aVBJU0pEblQ2VUVEclBWWlZvSjZrQkE2bzlrUWNHOnNrX1dpWUt1eXB4cFhLeXdoZjgwVm9pS2xCcFZnZWJpdENDVU5sN01GbVZ4WUh5cWxacg==
+
+
 # ═══════════════════════════════════════════════════════════════════════════════
 #                              RESUMO DO FLUXO
 # ═══════════════════════════════════════════════════════════════════════════════
