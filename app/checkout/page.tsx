@@ -118,6 +118,7 @@ export default function CheckoutPage() {
   }, [])
 
   const productPrices: { [key: string]: number } = {
+    "TESTE - Produto R$ 5": 500, // R$ 5,00 em centavos - PRODUTO DE TESTE
     "Gás de cozinha 13 kg (P13)": 8600, // R$ 86,00 em centavos
     "Gás de Cozinha 13kg": 8600, // R$ 86,00 em centavos (compatibilidade)
     "Água Mineral Indaiá 20L": 1283, // R$ 12,83 em centavos
