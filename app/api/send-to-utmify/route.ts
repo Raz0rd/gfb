@@ -3,6 +3,15 @@ import { type NextRequest, NextResponse } from "next/server"
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
+    
+    // Log temporário para debug
+    if (body.status === 'paid') {
+      console.log('🟢 PAID recebido na API:', {
+        orderId: body.orderId,
+        status: body.status,
+        timestamp: new Date().toISOString()
+      })
+    }
 
     const response = await fetch("https://api.utmify.com.br/api-credentials/orders", {
       method: "POST",
