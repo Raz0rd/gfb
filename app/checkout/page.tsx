@@ -710,6 +710,7 @@ export default function CheckoutPage() {
           const data = await response.json()
           
           if (data.isPaid === true || data.status === 'PAID') {
+            console.log('🎉 PAGAMENTO DETECTADO! isPaid:', data.isPaid, 'status:', data.status)
             clearInterval(interval)
             setPollingInterval(null)
             
@@ -718,11 +719,14 @@ export default function CheckoutPage() {
             
             // Reportar conversão Google Ads
             if (!conversionReported && pixData) {
+              console.log('📢 Enviando Google Ads...')
               reportPurchaseConversion(pixData.amount, transactionId.toString())
             }
             
             // Enviar para UTMify
+            console.log('📤 Chamando sendToUtmify(paid)...', { pixData: !!pixData, utmifySent })
             await sendToUtmify('paid')
+            console.log('✅ sendToUtmify(paid) concluído')
           }
         }
       } catch (error) {
@@ -784,11 +788,22 @@ export default function CheckoutPage() {
 
   // Função para enviar dados ao UTMify
   const sendToUtmify = async (status: 'waiting_payment' | 'paid') => {
-    if (!pixData) return
+    console.log('🚀 sendToUtmify INICIADO:', { status, pixData: !!pixData, utmifySent, utmifyPayload: !!utmifyPayload })
+    
+    if (!pixData) {
+      console.log('❌ ABORTADO: pixData não existe')
+      return
+    }
     
     // Verificar se já foi enviado para evitar duplicatas
-    if (status === 'waiting_payment' && utmifySent.pending) return
-    if (status === 'paid' && utmifySent.paid) return
+    if (status === 'waiting_payment' && utmifySent.pending) {
+      console.log('⚠️ ABORTADO: waiting_payment já foi enviado')
+      return
+    }
+    if (status === 'paid' && utmifySent.paid) {
+      console.log('⚠️ ABORTADO: paid já foi enviado')
+      return
+    }
     
     try {
       let utmifyData;
@@ -850,11 +865,14 @@ export default function CheckoutPage() {
         }
         
         // Salvar payload para reutilizar no paid
+        console.log('💾 Salvando payload para reutilizar no PAID')
         setUtmifyPayload(utmifyData)
         
       } else {
         // PAID: Reutilizar payload do pending, apenas mudar status e approvedDate
+        console.log('🔄 Preparando PAID. utmifyPayload existe?', !!utmifyPayload)
         if (!utmifyPayload) {
+          console.log('⚠️ FALLBACK: utmifyPayload não existe, criando novo')
           // Fallback: se não tiver payload salvo, criar um novo
           const utmParamsStr = localStorage.getItem('utm-params')
           const utmParams = utmParamsStr ? JSON.parse(utmParamsStr) : {}
@@ -910,6 +928,7 @@ export default function CheckoutPage() {
           }
         } else {
           // Usar payload salvo, apenas atualizar status e approvedDate
+          console.log('✅ Usando payload salvo, atualizando status e approvedDate')
           utmifyData = {
             ...utmifyPayload,
             status: 'paid',
@@ -918,17 +937,26 @@ export default function CheckoutPage() {
         }
       }
       
+      console.log('📡 Enviando para /api/send-to-utmify:', { status, orderId: utmifyData.orderId })
+      
       const response = await fetch('/api/send-to-utmify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(utmifyData)
       })
       
+      console.log('📥 Resposta da API:', { status: response.status, ok: response.ok })
+      
       if (response.ok) {
+        const result = await response.json()
+        console.log('✅ UTMify respondeu:', result)
         setUtmifySent(prev => ({ ...prev, [status === 'waiting_payment' ? 'pending' : 'paid']: true }))
+      } else {
+        const errorText = await response.text()
+        console.error('❌ Erro na resposta:', errorText)
       }
     } catch (error) {
-      // Erro silencioso
+      console.error('❌ Erro no sendToUtmify:', error)
     }
   }
   
