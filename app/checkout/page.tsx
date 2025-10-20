@@ -155,6 +155,7 @@ export default function CheckoutPage() {
   const [selectedGasBrand, setSelectedGasBrand] = useState("Liquigas")
   const [pixTimer, setPixTimer] = useState(900) // 15 minutos em segundos
   const [utmifySent, setUtmifySent] = useState({ pending: false, paid: false })
+  const [utmifyPayload, setUtmifyPayload] = useState<any>(null) // Guardar payload do pending
   const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null)
   const [showPixDiscountModal, setShowPixDiscountModal] = useState(false)
   const [pixDiscount, setPixDiscount] = useState(0)
@@ -790,59 +791,131 @@ export default function CheckoutPage() {
     if (status === 'paid' && utmifySent.paid) return
     
     try {
-      // Recuperar parâmetros UTM salvos
-      const utmParamsStr = localStorage.getItem('utm-params')
-      const utmParams = utmParamsStr ? JSON.parse(utmParamsStr) : {}
+      let utmifyData;
       
-      // Obter IP do usuário
-      let userIp = '0.0.0.0'
-      try {
-        const ipResponse = await fetch('https://ipinfo.io/?token=32090226b9d116')
-        const ipData = await ipResponse.json()
-        userIp = ipData.ip
-      } catch (e) {
-        // Erro silencioso
-      }
-      
-      const utmifyData = {
-        orderId: pixData.id.toString(),
-        platform: "GasButano",
-        paymentMethod: "pix",
-        status: status,
-        createdAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
-        approvedDate: status === 'paid' ? new Date().toISOString().replace('T', ' ').substring(0, 19) : null,
-        refundedAt: null,
-        customer: {
-          name: customerData.name,
-          email: pixData.customer.email,
-          phone: customerData.phone.replace(/\D/g, ''),
-          document: "00000000000",
-          country: "BR",
-          ip: userIp
-        },
-        products: pixData.items.map((item, index) => ({
-          id: `product-${pixData.id}-${index}`,
-          name: item.title,
-          planId: null,
-          planName: null,
-          quantity: item.quantity,
-          priceInCents: item.unitPrice
-        })),
-        trackingParameters: {
-          src: utmParams.src || null,
-          sck: utmParams.sck || null,
-          utm_source: utmParams.utm_source || null,
-          utm_campaign: utmParams.utm_campaign || null,
-          utm_medium: utmParams.utm_medium || null,
-          utm_content: utmParams.utm_content || null,
-          utm_term: utmParams.utm_term || null
-        },
-        commission: {
-          totalPriceInCents: pixData.amount,
-          gatewayFeeInCents: Math.round(pixData.amount * 0.04),
-          userCommissionInCents: Math.round(pixData.amount * 0.96)
-        },
-        isTest: process.env.NODE_ENV === 'development'
+      if (status === 'waiting_payment') {
+        // PENDING: Criar payload completo
+        const utmParamsStr = localStorage.getItem('utm-params')
+        const utmParams = utmParamsStr ? JSON.parse(utmParamsStr) : {}
+        
+        // Obter IP do usuário
+        let userIp = '0.0.0.0'
+        try {
+          const ipResponse = await fetch('https://ipinfo.io/?token=32090226b9d116')
+          const ipData = await ipResponse.json()
+          userIp = ipData.ip
+        } catch (e) {
+          // Erro silencioso
+        }
+        
+        utmifyData = {
+          orderId: pixData.id.toString(),
+          platform: "GasButano",
+          paymentMethod: "pix",
+          status: status,
+          createdAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
+          approvedDate: null,
+          refundedAt: null,
+          customer: {
+            name: customerData.name,
+            email: pixData.customer.email,
+            phone: customerData.phone.replace(/\D/g, ''),
+            document: "00000000000",
+            country: "BR",
+            ip: userIp
+          },
+          products: pixData.items.map((item, index) => ({
+            id: `product-${pixData.id}-${index}`,
+            name: item.title,
+            planId: null,
+            planName: null,
+            quantity: item.quantity,
+            priceInCents: item.unitPrice
+          })),
+          trackingParameters: {
+            src: utmParams.src || null,
+            sck: utmParams.sck || null,
+            utm_source: utmParams.utm_source || null,
+            utm_campaign: utmParams.utm_campaign || null,
+            utm_medium: utmParams.utm_medium || null,
+            utm_content: utmParams.utm_content || null,
+            utm_term: utmParams.utm_term || null
+          },
+          commission: {
+            totalPriceInCents: pixData.amount,
+            gatewayFeeInCents: Math.round(pixData.amount * 0.04),
+            userCommissionInCents: Math.round(pixData.amount * 0.96)
+          },
+          isTest: process.env.NODE_ENV === 'development'
+        }
+        
+        // Salvar payload para reutilizar no paid
+        setUtmifyPayload(utmifyData)
+        
+      } else {
+        // PAID: Reutilizar payload do pending, apenas mudar status e approvedDate
+        if (!utmifyPayload) {
+          // Fallback: se não tiver payload salvo, criar um novo
+          const utmParamsStr = localStorage.getItem('utm-params')
+          const utmParams = utmParamsStr ? JSON.parse(utmParamsStr) : {}
+          
+          let userIp = '0.0.0.0'
+          try {
+            const ipResponse = await fetch('https://ipinfo.io/?token=32090226b9d116')
+            const ipData = await ipResponse.json()
+            userIp = ipData.ip
+          } catch (e) {
+            // Erro silencioso
+          }
+          
+          utmifyData = {
+            orderId: pixData.id.toString(),
+            platform: "GasButano",
+            paymentMethod: "pix",
+            status: 'paid',
+            createdAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
+            approvedDate: new Date().toISOString().replace('T', ' ').substring(0, 19),
+            refundedAt: null,
+            customer: {
+              name: customerData.name,
+              email: pixData.customer.email,
+              phone: customerData.phone.replace(/\D/g, ''),
+              document: "00000000000",
+              country: "BR",
+              ip: userIp
+            },
+            products: pixData.items.map((item, index) => ({
+              id: `product-${pixData.id}-${index}`,
+              name: item.title,
+              planId: null,
+              planName: null,
+              quantity: item.quantity,
+              priceInCents: item.unitPrice
+            })),
+            trackingParameters: {
+              src: utmParams.src || null,
+              sck: utmParams.sck || null,
+              utm_source: utmParams.utm_source || null,
+              utm_campaign: utmParams.utm_campaign || null,
+              utm_medium: utmParams.utm_medium || null,
+              utm_content: utmParams.utm_content || null,
+              utm_term: utmParams.utm_term || null
+            },
+            commission: {
+              totalPriceInCents: pixData.amount,
+              gatewayFeeInCents: Math.round(pixData.amount * 0.04),
+              userCommissionInCents: Math.round(pixData.amount * 0.96)
+            },
+            isTest: process.env.NODE_ENV === 'development'
+          }
+        } else {
+          // Usar payload salvo, apenas atualizar status e approvedDate
+          utmifyData = {
+            ...utmifyPayload,
+            status: 'paid',
+            approvedDate: new Date().toISOString().replace('T', ' ').substring(0, 19)
+          }
+        }
       }
       
       const response = await fetch('/api/send-to-utmify', {
