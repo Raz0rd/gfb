@@ -709,7 +709,10 @@ export default function CheckoutPage() {
         if (response.ok) {
           const data = await response.json()
           
-          if (data.isPaid === true || data.status === 'PAID') {
+          // Verificar APENAS o status (PAID ou paid)
+          const status = data.status?.toUpperCase()
+          
+          if (status === 'PAID' && !utmifySent.paid) {
             clearInterval(interval)
             setPollingInterval(null)
             
@@ -721,7 +724,7 @@ export default function CheckoutPage() {
               reportPurchaseConversion(pixData.amount, transactionId.toString())
             }
             
-            // Enviar para UTMify
+            // Enviar para UTMify (já tem verificação interna de duplicata)
             await sendToUtmify('paid')
           }
         }
