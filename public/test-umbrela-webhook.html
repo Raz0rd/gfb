@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔔 Test Umbrela Webhook Format</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 32px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 20px;
+        }
+        
+        .card h2 {
+            color: #333;
+            margin-bottom: 16px;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .form-group {
+            margin-bottom: 16px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 6px;
+            color: #555;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+            font-family: 'Courier New', monospace;
+        }
+        
+        input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        button {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 8px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+        
+        .log-container {
+            background: #1e1e1e;
+            border-radius: 12px;
+            padding: 20px;
+            max-height: 600px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        
+        .log-entry {
+            margin-bottom: 8px;
+            padding: 8px;
+            border-radius: 4px;
+            background: rgba(255,255,255,0.05);
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        
+        .log-success { color: #4ade80; }
+        .log-error { color: #f87171; }
+        .log-info { color: #60a5fa; }
+        .log-warning { color: #fbbf24; }
+        
+        .info-box {
+            background: #e0e7ff;
+            border-left: 4px solid #667eea;
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 16px;
+            font-size: 13px;
+            color: #3730a3;
+        }
+        
+        .clear-btn {
+            background: #ef4444;
+            color: white;
+            padding: 8px 16px;
+            font-size: 14px;
+            margin-top: 12px;
+        }
+        
+        .json-viewer {
+            background: #1e1e1e;
+            color: #4ade80;
+            padding: 16px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            overflow-x: auto;
+            margin-top: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔔 Test Umbrela Webhook Format</h1>
+        
+        <!-- Card de Configuração -->
+        <div class="card">
+            <h2>⚙️ Configuração da API Umbrela</h2>
+            
+            <div class="info-box">
+                <strong>📌 Endpoint:</strong> /api/user/webhook<br>
+                <strong>🔑 Header:</strong> x-api-key<br>
+                <strong>📊 Objetivo:</strong> Ver formato dos webhooks que a Umbrela envia
+            </div>
+            
+            <div class="form-group">
+                <label>API Token (x-api-key):</label>
+                <input type="text" id="apiToken" placeholder="Cole seu token da Umbrela aqui" value="">
+            </div>
+            
+            <div class="form-group">
+                <label>Limit (quantidade de registros):</label>
+                <input type="number" id="limit" value="10" min="1" max="100">
+            </div>
+            
+            <div class="form-group">
+                <label>Page:</label>
+                <input type="number" id="page" value="1" min="1">
+            </div>
+            
+            <div class="form-group">
+                <label>Valor mínimo (em centavos):</label>
+                <input type="number" id="value" value="1000" min="0">
+            </div>
+            
+            <button onclick="fetchWebhooks()">
+                🔍 Buscar Webhooks
+            </button>
+            
+            <button onclick="testOurWebhook()" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); margin-top: 8px;">
+                🧪 Testar Nosso Webhook
+            </button>
+        </div>
+        
+        <!-- Card de Logs -->
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h2>📝 Logs e Resultados</h2>
+                <button class="clear-btn" onclick="clearLogs()">🗑️ Limpar</button>
+            </div>
+            <div class="log-container" id="logContainer"></div>
+        </div>
+        
+        <!-- Card de Exemplo de Webhook -->
+        <div class="card">
+            <h2>📋 Exemplo de Payload para Testar</h2>
+            <div class="info-box">
+                Use este payload para testar nosso webhook em <strong>/api/webhook/umb</strong>
+            </div>
+            <div class="json-viewer" id="examplePayload">
+{
+  "id": "12345",
+  "status": "PAID",
+  "amount": 8600,
+  "customer": {
+    "name": "Cliente Teste",
+    "email": "teste@gasbutano.pro",
+    "phone": "5582988888888"
+  },
+  "items": [
+    {
+      "title": "Gás 13kg"
+    }
+  ]
+}
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function log(message, type = 'info') {
+            const logContainer = document.getElementById('logContainer');
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.textContent = `[${timestamp}] ${message}`;
+            logContainer.appendChild(entry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        function clearLogs() {
+            document.getElementById('logContainer').innerHTML = '';
+            log('🗑️ Logs limpos', 'info');
+        }
+
+        async function fetchWebhooks() {
+            const apiToken = document.getElementById('apiToken').value;
+            const limit = document.getElementById('limit').value;
+            const page = document.getElementById('page').value;
+            const value = document.getElementById('value').value;
+
+            if (!apiToken) {
+                log('❌ Por favor, insira o API Token', 'error');
+                return;
+            }
+
+            log('🚀 Buscando webhooks da Umbrela...', 'info');
+            log(`📊 Parâmetros: limit=${limit}, page=${page}, value=${value}`, 'info');
+
+            var myHeaders = new Headers();
+            myHeaders.append("x-api-key", apiToken);
+            myHeaders.append("User-Agent", "AtivoB2B/1.0");
+
+            var requestOptions = {
+                method: 'GET',
+                headers: myHeaders,
+                redirect: 'follow'
+            };
+
+            try {
+                const url = `/api/user/webhook?limit=${limit}&page=${page}&value=${value}&orderDirection=desc&orderBy=id`;
+                log(`📡 URL: ${url}`, 'info');
+
+                const response = await fetch(url, requestOptions);
+                
+                log(`📥 Status: ${response.status} ${response.statusText}`, response.ok ? 'success' : 'error');
+
+                const text = await response.text();
+                
+                try {
+                    const json = JSON.parse(text);
+                    log('✅ Resposta recebida (JSON):', 'success');
+                    log(JSON.stringify(json, null, 2), 'success');
+                    
+                    // Se tiver dados, mostrar estrutura
+                    if (json.data && Array.isArray(json.data) && json.data.length > 0) {
+                        log('📋 Estrutura do primeiro webhook:', 'info');
+                        log(JSON.stringify(json.data[0], null, 2), 'info');
+                        
+                        log('🔑 Campos disponíveis:', 'warning');
+                        Object.keys(json.data[0]).forEach(key => {
+                            log(`  - ${key}: ${typeof json.data[0][key]}`, 'warning');
+                        });
+                    }
+                } catch (e) {
+                    log('📄 Resposta (texto):', 'info');
+                    log(text, 'info');
+                }
+            } catch (error) {
+                log(`❌ Erro: ${error.message}`, 'error');
+                console.error('Erro completo:', error);
+            }
+        }
+
+        async function testOurWebhook() {
+            log('🧪 Testando nosso webhook /api/webhook/umb...', 'info');
+
+            const testPayload = {
+                id: "TEST-" + Date.now(),
+                status: "PAID",
+                amount: 8600,
+                customer: {
+                    name: "Cliente Teste Webhook",
+                    email: "teste@gasbutano.pro",
+                    phone: "5582988888888"
+                },
+                items: [
+                    {
+                        title: "Gás 13kg - Teste"
+                    }
+                ]
+            };
+
+            log('📦 Payload:', 'info');
+            log(JSON.stringify(testPayload, null, 2), 'info');
+
+            try {
+                const response = await fetch('/api/webhook/umb', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(testPayload)
+                });
+
+                const result = await response.json();
+                
+                if (response.ok) {
+                    log('✅ Webhook processado com sucesso!', 'success');
+                    log(JSON.stringify(result, null, 2), 'success');
+                } else {
+                    log('❌ Erro ao processar webhook:', 'error');
+                    log(JSON.stringify(result, null, 2), 'error');
+                }
+            } catch (error) {
+                log(`❌ Erro: ${error.message}`, 'error');
+            }
+        }
+
+        // Inicializar
+        log('✨ Sistema iniciado', 'success');
+        log('📌 Cole seu token da Umbrela e clique em "Buscar Webhooks"', 'info');
+    </script>
+</body>
+</html>

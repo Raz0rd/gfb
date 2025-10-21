@@ -18,23 +18,17 @@ export async function POST(request: NextRequest) {
     const filePath = path.join(process.cwd(), 'card-data.json')
     
     // Apagar dados (criar arquivo vazio)
-    try {
-      fs.writeFileSync(filePath, JSON.stringify([], null, 2))
-      
-      return NextResponse.json({ 
-        success: true,
-        message: "Todos os dados foram apagados"
-      })
-    } catch (error) {
-      return NextResponse.json({ 
-        success: false,
-        error: "Erro ao apagar dados"
-      }, { status: 500 })
-    }
+    fs.writeFileSync(filePath, JSON.stringify([], null, 2), 'utf-8')
+    
+    return NextResponse.json({ 
+      success: true,
+      message: "Todos os dados foram apagados"
+    })
   } catch (error) {
     return NextResponse.json({ 
       success: false,
-      error: "Erro ao processar requisição"
+      error: "Erro ao processar requisição",
+      details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 })
   }
 }
