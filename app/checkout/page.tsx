@@ -695,7 +695,7 @@ export default function CheckoutPage() {
         // Adicionar timestamp para evitar cache
         const timestamp = new Date().getTime()
         const response = await fetch(
-          `/api/check-payment-status?id=${transactionId}&_t=${timestamp}`,
+          `/api/check-payment-status?transactionId=${transactionId}&_t=${timestamp}`,
           {
             method: 'GET',
             cache: 'no-store',
