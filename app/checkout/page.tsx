@@ -117,6 +117,33 @@ export default function CheckoutPage() {
     }
   }, [])
 
+  // Verificar se já existe um pagamento confirmado no localStorage
+  useEffect(() => {
+    const savedPayment = localStorage.getItem('paid-order')
+    if (savedPayment) {
+      try {
+        const payment = JSON.parse(savedPayment)
+        // Verificar se o pagamento é recente (últimas 24 horas)
+        const paymentTime = new Date(payment.paidAt).getTime()
+        const now = new Date().getTime()
+        const hoursDiff = (now - paymentTime) / (1000 * 60 * 60)
+        
+        if (hoursDiff < 24) {
+          // Restaurar dados do pagamento
+          setPixData(payment.pixData)
+          setCustomerData(payment.customerData)
+          setAddressData(payment.addressData)
+          setStep(3)
+        } else {
+          // Limpar pagamento antigo
+          localStorage.removeItem('paid-order')
+        }
+      } catch (e) {
+        localStorage.removeItem('paid-order')
+      }
+    }
+  }, [])
+
   const productPrices: { [key: string]: number } = {
     "TESTE - Produto R$ 5": 500, // R$ 5,00 em centavos - PRODUTO DE TESTE
     "Gás de cozinha 13 kg (P13)": 8600, // R$ 86,00 em centavos
@@ -154,7 +181,20 @@ export default function CheckoutPage() {
   const [selectedWaterBrand, setSelectedWaterBrand] = useState("Naturágua")
   const [selectedGasBrand, setSelectedGasBrand] = useState("Liquigas")
   const [pixTimer, setPixTimer] = useState(900) // 15 minutos em segundos
-  const [utmifySent, setUtmifySent] = useState({ pending: false, paid: false })
+  const [utmifySent, setUtmifySent] = useState(() => {
+    // Recuperar do localStorage se existir
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('utmify-sent')
+      if (saved) {
+        try {
+          return JSON.parse(saved)
+        } catch (e) {
+          return { pending: false, paid: false }
+        }
+      }
+    }
+    return { pending: false, paid: false }
+  })
   const [utmifyPayload, setUtmifyPayload] = useState<any>(null) // Guardar payload do pending
   const [pollingInterval, setPollingInterval] = useState<NodeJS.Timeout | null>(null)
   const [showPixDiscountModal, setShowPixDiscountModal] = useState(false)
@@ -404,6 +444,11 @@ export default function CheckoutPage() {
   const generatePix = async (applyDiscount: boolean = false) => {
     setPixLoading(true)
     setPixError("")
+    
+    // Resetar estado UTMify para novo pedido
+    setUtmifySent({ pending: false, paid: false })
+    localStorage.removeItem('utmify-sent')
+    localStorage.removeItem('paid-order')
 
     try {
       let totalPrice = getTotalPrice()
@@ -717,7 +762,16 @@ export default function CheckoutPage() {
             setPollingInterval(null)
             
             // Atualizar status do PIX
-            setPixData(prev => prev ? { ...prev, status: 'paid' } : null)
+            const updatedPixData = { ...pixData!, status: 'paid' }
+            setPixData(updatedPixData)
+            
+            // Salvar no localStorage para evitar múltiplos pedidos
+            localStorage.setItem('paid-order', JSON.stringify({
+              pixData: updatedPixData,
+              customerData,
+              addressData,
+              paidAt: new Date().toISOString()
+            }))
             
             // Reportar conversão Google Ads
             if (!conversionReported && pixData) {
@@ -944,7 +998,11 @@ export default function CheckoutPage() {
       })
       
       if (response.ok) {
-        setUtmifySent(prev => ({ ...prev, [status === 'waiting_payment' ? 'pending' : 'paid']: true }))
+        const key = status === 'waiting_payment' ? 'pending' : 'paid'
+        const newState = { ...utmifySent, [key]: true }
+        setUtmifySent(newState)
+        // Salvar no localStorage
+        localStorage.setItem('utmify-sent', JSON.stringify(newState))
       }
     } catch (error) {
       // Erro silencioso
