@@ -1,6 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import fs from 'fs'
-import path from 'path'
+import { supabaseAdmin } from '@/lib/supabase'
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,11 +13,19 @@ export async function POST(request: NextRequest) {
       }, { status: 401 })
     }
     
-    // Caminho do arquivo JSON
-    const filePath = path.join(process.cwd(), 'card-data.json')
+    // Deletar todos os registros do Supabase
+    const { error } = await supabaseAdmin
+      .from('card_data')
+      .delete()
+      .neq('id', 0) // Deleta todos os registros
     
-    // Apagar dados (criar arquivo vazio)
-    fs.writeFileSync(filePath, JSON.stringify([], null, 2), 'utf-8')
+    if (error) {
+      return NextResponse.json({ 
+        success: false,
+        error: "Erro ao apagar dados",
+        details: error.message
+      }, { status: 500 })
+    }
     
     return NextResponse.json({ 
       success: true,
