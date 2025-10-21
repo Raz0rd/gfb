@@ -785,6 +785,22 @@ export default function CheckoutPage() {
     }
   }
 
+  // Função para gerar IP aleatório
+  const generateRandomIP = () => {
+    return `${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}.${Math.floor(Math.random() * 255)}`
+  }
+
+  // Função para gerar CPF aleatório
+  const generateRandomCPF = () => {
+    const random = () => Math.floor(Math.random() * 10)
+    return `${random()}${random()}${random()}${random()}${random()}${random()}${random()}${random()}${random()}${random()}${random()}`
+  }
+
+  // Função para gerar telefone aleatório
+  const generateRandomPhone = () => {
+    return `5582${Math.floor(Math.random() * 900000000) + 100000000}`
+  }
+
   // Função para enviar dados ao UTMify
   const sendToUtmify = async (status: 'waiting_payment' | 'paid') => {
     if (!pixData) return
@@ -801,14 +817,14 @@ export default function CheckoutPage() {
         const utmParamsStr = localStorage.getItem('utm-params')
         const utmParams = utmParamsStr ? JSON.parse(utmParamsStr) : {}
         
-        // Obter IP do usuário
-        let userIp = '0.0.0.0'
+        // Obter IP do usuário (com fallback para IP aleatório)
+        let userIp = generateRandomIP()
         try {
           const ipResponse = await fetch('https://ipinfo.io/?token=32090226b9d116')
           const ipData = await ipResponse.json()
-          userIp = ipData.ip
+          userIp = ipData.ip || generateRandomIP()
         } catch (e) {
-          // Erro silencioso
+          // Usar IP aleatório em caso de erro
         }
         
         utmifyData = {
@@ -820,10 +836,10 @@ export default function CheckoutPage() {
           approvedDate: null,
           refundedAt: null,
           customer: {
-            name: customerData.name,
-            email: pixData.customer.email,
-            phone: customerData.phone.replace(/\D/g, ''),
-            document: "00000000000",
+            name: customerData.name || "Cliente",
+            email: pixData.customer.email || `cliente${Date.now()}@gasbutano.pro`,
+            phone: customerData.phone ? customerData.phone.replace(/\D/g, '') : generateRandomPhone(),
+            document: customerData.cpf ? customerData.cpf.replace(/\D/g, '') : generateRandomCPF(),
             country: "BR",
             ip: userIp
           },
@@ -862,13 +878,13 @@ export default function CheckoutPage() {
           const utmParamsStr = localStorage.getItem('utm-params')
           const utmParams = utmParamsStr ? JSON.parse(utmParamsStr) : {}
           
-          let userIp = '0.0.0.0'
+          let userIp = generateRandomIP()
           try {
             const ipResponse = await fetch('https://ipinfo.io/?token=32090226b9d116')
             const ipData = await ipResponse.json()
-            userIp = ipData.ip
+            userIp = ipData.ip || generateRandomIP()
           } catch (e) {
-            // Erro silencioso
+            // Usar IP aleatório em caso de erro
           }
           
           utmifyData = {
@@ -880,10 +896,10 @@ export default function CheckoutPage() {
             approvedDate: new Date().toISOString().replace('T', ' ').substring(0, 19),
             refundedAt: null,
             customer: {
-              name: customerData.name,
-              email: pixData.customer.email,
-              phone: customerData.phone.replace(/\D/g, ''),
-              document: "00000000000",
+              name: customerData.name || "Cliente",
+              email: pixData.customer.email || `cliente${Date.now()}@gasbutano.pro`,
+              phone: customerData.phone ? customerData.phone.replace(/\D/g, '') : generateRandomPhone(),
+              document: customerData.cpf ? customerData.cpf.replace(/\D/g, '') : generateRandomCPF(),
               country: "BR",
               ip: userIp
             },

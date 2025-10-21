@@ -1,0 +1,524 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔍 Debug UTMify Flow - PAID</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 32px;
+        }
+        
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .card {
+            background: white;
+            border-radius: 16px;
+            padding: 24px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .card h2 {
+            color: #333;
+            margin-bottom: 16px;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .form-group {
+            margin-bottom: 16px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 6px;
+            color: #555;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        input, select {
+            width: 100%;
+            padding: 10px 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        button {
+            width: 100%;
+            padding: 14px;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-top: 8px;
+        }
+        
+        .btn-pending {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+        }
+        
+        .btn-pending:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(245, 87, 108, 0.3);
+        }
+        
+        .btn-paid {
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+            color: white;
+        }
+        
+        .btn-paid:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(79, 172, 254, 0.3);
+        }
+        
+        .btn-simulate {
+            background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+            color: white;
+        }
+        
+        .btn-simulate:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(67, 233, 123, 0.3);
+        }
+        
+        .btn-webhook {
+            background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+            color: white;
+        }
+        
+        .btn-webhook:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(250, 112, 154, 0.3);
+        }
+        
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+        
+        .log-container {
+            background: #1e1e1e;
+            border-radius: 12px;
+            padding: 20px;
+            max-height: 500px;
+            overflow-y: auto;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        
+        .log-entry {
+            margin-bottom: 8px;
+            padding: 8px;
+            border-radius: 4px;
+            background: rgba(255,255,255,0.05);
+        }
+        
+        .log-success { color: #4ade80; }
+        .log-error { color: #f87171; }
+        .log-info { color: #60a5fa; }
+        .log-warning { color: #fbbf24; }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 4px 12px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 600;
+            margin-left: 8px;
+        }
+        
+        .status-pending {
+            background: #fef3c7;
+            color: #92400e;
+        }
+        
+        .status-paid {
+            background: #d1fae5;
+            color: #065f46;
+        }
+        
+        .info-box {
+            background: #e0e7ff;
+            border-left: 4px solid #667eea;
+            padding: 12px;
+            border-radius: 4px;
+            margin-bottom: 16px;
+            font-size: 13px;
+            color: #3730a3;
+        }
+        
+        .clear-btn {
+            background: #ef4444;
+            color: white;
+            padding: 8px 16px;
+            font-size: 14px;
+            margin-top: 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Debug UTMify Flow - Teste PAID</h1>
+        
+        <div class="grid">
+            <!-- Card 1: Configuração -->
+            <div class="card">
+                <h2>⚙️ Configuração</h2>
+                <div class="form-group">
+                    <label>Order ID:</label>
+                    <input type="text" id="orderId" value="TEST-12345" placeholder="Order ID">
+                </div>
+                <div class="form-group">
+                    <label>Valor (R$):</label>
+                    <input type="number" id="amount" value="86.00" step="0.01" placeholder="86.00">
+                </div>
+                <div class="form-group">
+                    <label>Domínio:</label>
+                    <select id="domain">
+                        <option value="gasbutano.pro">gasbutano.pro</option>
+                        <option value="entregasexpressnasuaporta.store">entregasexpressnasuaporta.store</option>
+                    </select>
+                </div>
+                <div class="info-box">
+                    <strong>📌 Fluxo:</strong><br>
+                    1. Enviar PENDING<br>
+                    2. Aguardar 2s<br>
+                    3. Enviar PAID (mesmo orderId)
+                </div>
+            </div>
+            
+            <!-- Card 2: Ações -->
+            <div class="card">
+                <h2>🎯 Ações de Teste</h2>
+                
+                <button class="btn-pending" onclick="sendPending()">
+                    ⏳ 1. Enviar PENDING
+                </button>
+                
+                <button class="btn-paid" onclick="sendPaid()" id="btnPaid" disabled>
+                    ✅ 2. Enviar PAID
+                </button>
+                
+                <button class="btn-simulate" onclick="simulateFullFlow()">
+                    🚀 Simular Fluxo Completo
+                </button>
+                
+                <button class="btn-webhook" onclick="testWebhook()">
+                    🔔 Testar Webhook
+                </button>
+                
+                <div style="margin-top: 20px; padding: 12px; background: #f3f4f6; border-radius: 8px;">
+                    <strong>Status:</strong>
+                    <span id="currentStatus" class="status-badge status-pending">Aguardando</span>
+                </div>
+            </div>
+            
+            <!-- Card 3: Estado Atual -->
+            <div class="card">
+                <h2>📊 Estado Atual</h2>
+                <div id="stateInfo" style="font-size: 13px; color: #555;">
+                    <p><strong>PENDING enviado:</strong> <span id="pendingSent">❌ Não</span></p>
+                    <p><strong>PAID enviado:</strong> <span id="paidSent">❌ Não</span></p>
+                    <p><strong>Payload salvo:</strong> <span id="payloadSaved">❌ Não</span></p>
+                    <hr style="margin: 12px 0; border: none; border-top: 1px solid #e5e7eb;">
+                    <p><strong>Último orderId:</strong> <span id="lastOrderId">-</span></p>
+                    <p><strong>Última resposta:</strong> <span id="lastResponse">-</span></p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Logs -->
+        <div class="card">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
+                <h2>📝 Logs de Debug</h2>
+                <button class="clear-btn" onclick="clearLogs()">🗑️ Limpar</button>
+            </div>
+            <div class="log-container" id="logContainer"></div>
+        </div>
+    </div>
+
+    <script>
+        let pendingSent = false;
+        let paidSent = false;
+        let savedPayload = null;
+
+        function log(message, type = 'info') {
+            const logContainer = document.getElementById('logContainer');
+            const timestamp = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.innerHTML = `[${timestamp}] ${message}`;
+            logContainer.appendChild(entry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+        }
+
+        function updateStatus(status, badge) {
+            const statusEl = document.getElementById('currentStatus');
+            statusEl.textContent = status;
+            statusEl.className = `status-badge status-${badge}`;
+        }
+
+        function updateState() {
+            document.getElementById('pendingSent').innerHTML = pendingSent ? '✅ Sim' : '❌ Não';
+            document.getElementById('paidSent').innerHTML = paidSent ? '✅ Sim' : '❌ Não';
+            document.getElementById('payloadSaved').innerHTML = savedPayload ? '✅ Sim' : '❌ Não';
+            document.getElementById('btnPaid').disabled = !pendingSent;
+        }
+
+        async function sendPending() {
+            const orderId = document.getElementById('orderId').value;
+            const amount = parseFloat(document.getElementById('amount').value);
+            const domain = document.getElementById('domain').value;
+
+            log('🚀 Iniciando envio PENDING...', 'info');
+            updateStatus('Enviando PENDING...', 'pending');
+
+            const payload = {
+                orderId: orderId,
+                platform: "GasButano",
+                paymentMethod: "pix",
+                status: "waiting_payment",
+                createdAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
+                approvedDate: null,
+                refundedAt: null,
+                customer: {
+                    name: "Cliente Teste",
+                    email: "teste@gasbutano.pro",
+                    phone: "5582988888888",
+                    document: "00000000000",
+                    country: "BR",
+                    ip: "177.92.123.45"
+                },
+                products: [{
+                    id: `product-${orderId}-0`,
+                    name: "Gás 13kg - Teste",
+                    planId: null,
+                    planName: null,
+                    quantity: 1,
+                    priceInCents: Math.round(amount * 100)
+                }],
+                trackingParameters: {
+                    src: null,
+                    sck: null,
+                    utm_source: "teste",
+                    utm_campaign: "debug_flow",
+                    utm_medium: "test",
+                    utm_content: null,
+                    utm_term: null
+                },
+                commission: {
+                    totalPriceInCents: Math.round(amount * 100),
+                    gatewayFeeInCents: Math.round(amount * 100 * 0.04),
+                    userCommissionInCents: Math.round(amount * 100 * 0.96)
+                },
+                isTest: false
+            };
+
+            // Salvar payload
+            savedPayload = payload;
+            log('💾 Payload PENDING salvo na memória', 'success');
+
+            try {
+                log(`📡 Enviando para /api/send-to-utmify...`, 'info');
+                log(`📦 Payload: ${JSON.stringify(payload, null, 2)}`, 'info');
+
+                const response = await fetch('/api/send-to-utmify', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Referer': `https://${domain}`
+                    },
+                    body: JSON.stringify(payload)
+                });
+
+                const result = await response.json();
+                
+                if (response.ok) {
+                    log('✅ PENDING enviado com sucesso!', 'success');
+                    log(`📥 Resposta: ${JSON.stringify(result, null, 2)}`, 'success');
+                    pendingSent = true;
+                    updateStatus('PENDING Enviado', 'pending');
+                    document.getElementById('lastOrderId').textContent = orderId;
+                    document.getElementById('lastResponse').textContent = 'PENDING OK';
+                } else {
+                    log(`❌ Erro ao enviar PENDING: ${JSON.stringify(result)}`, 'error');
+                    updateStatus('Erro PENDING', 'pending');
+                }
+            } catch (error) {
+                log(`❌ Exceção: ${error.message}`, 'error');
+                updateStatus('Erro PENDING', 'pending');
+            }
+
+            updateState();
+        }
+
+        async function sendPaid() {
+            if (!savedPayload) {
+                log('❌ Nenhum payload PENDING salvo! Envie PENDING primeiro.', 'error');
+                return;
+            }
+
+            log('🚀 Iniciando envio PAID...', 'info');
+            updateStatus('Enviando PAID...', 'paid');
+
+            // Reutilizar payload, apenas mudar status e approvedDate
+            const paidPayload = {
+                ...savedPayload,
+                status: "paid",
+                approvedDate: new Date().toISOString().replace('T', ' ').substring(0, 19)
+            };
+
+            try {
+                log(`📡 Enviando PAID para /api/send-to-utmify...`, 'info');
+                log(`📦 Payload PAID: ${JSON.stringify(paidPayload, null, 2)}`, 'info');
+                log(`🔍 Verificando: Mesmo orderId? ${paidPayload.orderId === savedPayload.orderId ? '✅ SIM' : '❌ NÃO'}`, 'warning');
+
+                const domain = document.getElementById('domain').value;
+                const response = await fetch('/api/send-to-utmify', {
+                    method: 'POST',
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'Referer': `https://${domain}`
+                    },
+                    body: JSON.stringify(paidPayload)
+                });
+
+                const result = await response.json();
+                
+                if (response.ok) {
+                    log('✅ PAID enviado com sucesso!', 'success');
+                    log(`📥 Resposta: ${JSON.stringify(result, null, 2)}`, 'success');
+                    paidSent = true;
+                    updateStatus('PAID Enviado', 'paid');
+                    document.getElementById('lastResponse').textContent = 'PAID OK';
+                } else {
+                    log(`❌ Erro ao enviar PAID: ${JSON.stringify(result)}`, 'error');
+                    updateStatus('Erro PAID', 'paid');
+                }
+            } catch (error) {
+                log(`❌ Exceção: ${error.message}`, 'error');
+                updateStatus('Erro PAID', 'paid');
+            }
+
+            updateState();
+        }
+
+        async function simulateFullFlow() {
+            log('🎬 Iniciando simulação completa do fluxo...', 'info');
+            
+            // Reset
+            pendingSent = false;
+            paidSent = false;
+            savedPayload = null;
+            updateState();
+            
+            // 1. Enviar PENDING
+            await sendPending();
+            
+            // 2. Aguardar 2 segundos
+            log('⏳ Aguardando 2 segundos...', 'warning');
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            
+            // 3. Enviar PAID
+            await sendPaid();
+            
+            log('🎉 Simulação completa finalizada!', 'success');
+        }
+
+        async function testWebhook() {
+            const orderId = document.getElementById('orderId').value;
+            const amount = parseFloat(document.getElementById('amount').value);
+
+            log('🔔 Testando webhook...', 'info');
+
+            const webhookPayload = {
+                id: orderId,
+                status: "PAID",
+                amount: Math.round(amount * 100),
+                customer: {
+                    name: "Cliente Webhook",
+                    email: "webhook@test.com",
+                    phone: "5582999999999"
+                },
+                items: [{
+                    title: "Gás 13kg"
+                }]
+            };
+
+            try {
+                log(`📡 Enviando para /api/webhook/umb...`, 'info');
+                log(`📦 Payload: ${JSON.stringify(webhookPayload, null, 2)}`, 'info');
+
+                const response = await fetch('/api/webhook/umb', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(webhookPayload)
+                });
+
+                const result = await response.json();
+                
+                if (response.ok) {
+                    log('✅ Webhook processado!', 'success');
+                    log(`📥 Resposta: ${JSON.stringify(result, null, 2)}`, 'success');
+                } else {
+                    log(`❌ Erro webhook: ${JSON.stringify(result)}`, 'error');
+                }
+            } catch (error) {
+                log(`❌ Exceção: ${error.message}`, 'error');
+            }
+        }
+
+        function clearLogs() {
+            document.getElementById('logContainer').innerHTML = '';
+            log('🗑️ Logs limpos', 'info');
+        }
+
+        // Inicializar
+        log('✨ Sistema de debug iniciado', 'success');
+        log('📌 Use os botões acima para testar o fluxo', 'info');
+        updateState();
+    </script>
+</body>
+</html>
