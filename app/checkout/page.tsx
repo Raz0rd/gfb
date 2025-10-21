@@ -38,6 +38,7 @@ interface PixResponse {
   status: string
   amount: number
   paymentMethod: string
+  paidAt?: string
   pix: {
     qrcode: string
     expirationDate: string
@@ -588,6 +589,14 @@ export default function CheckoutPage() {
       const pixResponse: PixResponse = await response.json()
       setPixData(pixResponse)
       
+      // Salvar dados do PIX no localStorage para usar no polling
+      localStorage.setItem('current-pix-transaction', JSON.stringify({
+        pixData: pixResponse,
+        customerData,
+        addressData,
+        createdAt: new Date().toISOString()
+      }))
+      
       // Reportar conversão de Iniciar finalização de compra (QR Code gerado)
       reportInitiateCheckout()
       
@@ -681,24 +690,32 @@ export default function CheckoutPage() {
     }
   }
 
-  // Função para obter tag de conversão baseada no domínio
+  // Função para obter tag de conversão COMPLETA baseada no domínio
+  // Formato: AW-ACCOUNT_ID/CONVERSION_ID
   const getConversionTag = () => {
     if (typeof window === 'undefined') return null
     
     const host = window.location.hostname.toLowerCase()
     
+    // localhost - TESTE
+    if (host.includes('localhost') || host === '127.0.0.1') {
+      return 'AW-TESTE/LOCALHOST-CONVERSION'
+    }
+    
     // entregasexpressnasuaporta.store
+    // Tag completa: Account ID + Conversion ID
     if (host.includes('entregasexpressnasuaporta.store')) {
       return 'AW-17554338622/ZCa-CN2Y7qobEL7mx7JB'
     }
     
     // gasbutano.pro (padrão)
-    if (host.includes('gasbutano.pro') || host.includes('localhost')) {
+    // Tag completa: Account ID + Conversion ID
+    if (host.includes('gasbutano.pro')) {
       return 'AW-17545933033/08VqCI_Qj5obEOnhxq5B'
     }
     
-    // Fallback para gasbutano
-    return 'NoTags'
+    // Fallback
+    return null
   }
 
   // Função para reportar conversão do Google Ads (quando paga - Compra)
@@ -722,9 +739,8 @@ export default function CheckoutPage() {
       
       // Marcar que conversão foi reportada
       setConversionReported(true);
-      
     } catch (error) {
-      // Erro silencioso
+      console.error('Erro ao reportar conversão:', error)
     }
   }
 
@@ -757,33 +773,53 @@ export default function CheckoutPage() {
           // Verificar APENAS o status (PAID ou paid)
           const status = data.status?.toUpperCase()
           
-          if (status === 'PAID' && !utmifySent.paid) {
+          if (status === 'PAID') {
+            // Recuperar dados do localStorage ao invés de usar estado React
+            const savedTransaction = localStorage.getItem('current-pix-transaction')
+            if (!savedTransaction) {
+              console.error('Transação não encontrada no localStorage')
+              return
+            }
+            
+            const transaction = JSON.parse(savedTransaction)
+            const currentPixData: PixResponse = transaction.pixData
+            const savedCustomerData = transaction.customerData
+            const savedAddressData = transaction.addressData
+            
             clearInterval(interval)
             setPollingInterval(null)
             
-            // Atualizar status do PIX
-            const updatedPixData = { ...pixData!, status: 'paid' }
+            const updatedPixData: PixResponse = { 
+              ...currentPixData, 
+              status: 'paid',
+              // Atualizar campos da API se disponíveis
+              ...(data.paidAt && { paidAt: data.paidAt })
+            }
             setPixData(updatedPixData)
             
             // Salvar no localStorage para evitar múltiplos pedidos
             localStorage.setItem('paid-order', JSON.stringify({
               pixData: updatedPixData,
-              customerData,
-              addressData,
+              customerData: savedCustomerData,
+              addressData: savedAddressData,
               paidAt: new Date().toISOString()
             }))
             
+            // Limpar transação temporária
+            localStorage.removeItem('current-pix-transaction')
+            
             // Reportar conversão Google Ads
-            if (!conversionReported && updatedPixData) {
+            if (!conversionReported) {
               reportPurchaseConversion(updatedPixData.amount, updatedPixData.id.toString())
+              setConversionReported(true)
             }
             
-            // Enviar para UTMify (já tem verificação interna de duplicata)
+            // Enviar para UTMify PAID (só funciona se pending foi enviado antes)
             await sendToUtmify('paid')
           }
         }
       } catch (error) {
-        // Erro silencioso
+        console.error('❌ [ERROR] Erro no polling:', error)
       }
     }, 5000) // Verifica a cada 5 segundos
     
@@ -857,7 +893,13 @@ export default function CheckoutPage() {
 
   // Função para enviar dados ao UTMify
   const sendToUtmify = async (status: 'waiting_payment' | 'paid') => {
-    if (!pixData) return
+    // Recuperar dados do localStorage
+    const savedTransaction = localStorage.getItem('current-pix-transaction')
+    if (!savedTransaction) return
+    
+    const transaction = JSON.parse(savedTransaction)
+    const currentPixData = transaction.pixData
+    const savedCustomerData = transaction.customerData
     
     // Verificar se já foi enviado para evitar duplicatas
     if (status === 'waiting_payment' && utmifySent.pending) return
@@ -882,7 +924,7 @@ export default function CheckoutPage() {
         }
         
         utmifyData = {
-          orderId: pixData.id.toString(),
+          orderId: currentPixData.id.toString(),
           platform: "GasButano",
           paymentMethod: "pix",
           status: status,
@@ -890,15 +932,15 @@ export default function CheckoutPage() {
           approvedDate: null,
           refundedAt: null,
           customer: {
-            name: customerData.name || "Cliente",
-            email: pixData.customer.email || `cliente${Date.now()}@gasbutano.pro`,
-            phone: customerData.phone ? customerData.phone.replace(/\D/g, '') : generateRandomPhone(),
-            document: customerData.cpf ? customerData.cpf.replace(/\D/g, '') : generateRandomCPF(),
+            name: savedCustomerData.name || "Cliente",
+            email: currentPixData.customer.email || `cliente${Date.now()}@gasbutano.pro`,
+            phone: savedCustomerData.phone ? savedCustomerData.phone.replace(/\D/g, '') : generateRandomPhone(),
+            document: savedCustomerData.cpf ? savedCustomerData.cpf.replace(/\D/g, '') : generateRandomCPF(),
             country: "BR",
             ip: userIp
           },
-          products: pixData.items.map((item, index) => ({
-            id: `product-${pixData.id}-${index}`,
+          products: currentPixData.items.map((item: any, index: number) => ({
+            id: `product-${currentPixData.id}-${index}`,
             name: item.title,
             planId: null,
             planName: null,
@@ -915,9 +957,9 @@ export default function CheckoutPage() {
             utm_term: utmParams.utm_term || null
           },
           commission: {
-            totalPriceInCents: pixData.amount,
-            gatewayFeeInCents: Math.round(pixData.amount * 0.04),
-            userCommissionInCents: Math.round(pixData.amount * 0.96)
+            totalPriceInCents: currentPixData.amount,
+            gatewayFeeInCents: Math.round(currentPixData.amount * 0.04),
+            userCommissionInCents: Math.round(currentPixData.amount * 0.96)
           },
           isTest: process.env.NODE_ENV === 'development'
         }
@@ -926,68 +968,18 @@ export default function CheckoutPage() {
         setUtmifyPayload(utmifyData)
         
       } else {
-        // PAID: Reutilizar payload do pending, apenas mudar status e approvedDate
+        // PAID: DEVE reutilizar payload do pending - SEM FALLBACK
         if (!utmifyPayload) {
-          // Fallback: se não tiver payload salvo, criar um novo
-          const utmParamsStr = localStorage.getItem('utm-params')
-          const utmParams = utmParamsStr ? JSON.parse(utmParamsStr) : {}
-          
-          let userIp = generateRandomIP()
-          try {
-            const ipResponse = await fetch('https://ipinfo.io/?token=32090226b9d116')
-            const ipData = await ipResponse.json()
-            userIp = ipData.ip || generateRandomIP()
-          } catch (e) {
-            // Usar IP aleatório em caso de erro
-          }
-          
-          utmifyData = {
-            orderId: pixData.id.toString(),
-            platform: "GasButano",
-            paymentMethod: "pix",
-            status: 'paid',
-            createdAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
-            approvedDate: new Date().toISOString().replace('T', ' ').substring(0, 19),
-            refundedAt: null,
-            customer: {
-              name: customerData.name || "Cliente",
-              email: pixData.customer.email || `cliente${Date.now()}@gasbutano.pro`,
-              phone: customerData.phone ? customerData.phone.replace(/\D/g, '') : generateRandomPhone(),
-              document: customerData.cpf ? customerData.cpf.replace(/\D/g, '') : generateRandomCPF(),
-              country: "BR",
-              ip: userIp
-            },
-            products: pixData.items.map((item, index) => ({
-              id: `product-${pixData.id}-${index}`,
-              name: item.title,
-              planId: null,
-              planName: null,
-              quantity: item.quantity,
-              priceInCents: item.unitPrice
-            })),
-            trackingParameters: {
-              src: utmParams.src || null,
-              sck: utmParams.sck || null,
-              utm_source: utmParams.utm_source || null,
-              utm_campaign: utmParams.utm_campaign || null,
-              utm_medium: utmParams.utm_medium || null,
-              utm_content: utmParams.utm_content || null,
-              utm_term: utmParams.utm_term || null
-            },
-            commission: {
-              totalPriceInCents: pixData.amount,
-              gatewayFeeInCents: Math.round(pixData.amount * 0.04),
-              userCommissionInCents: Math.round(pixData.amount * 0.96)
-            },
-            isTest: process.env.NODE_ENV === 'development'
-          }
-        } else {
-          // Usar payload salvo, apenas atualizar status e approvedDate
-          utmifyData = {
-            ...utmifyPayload,
-            status: 'paid',
-            approvedDate: new Date().toISOString().replace('T', ' ').substring(0, 19)
-          }
+          console.error('❌ [ERROR] Tentando enviar PAID sem ter enviado PENDING antes!')
+          console.error('❌ [ERROR] utmifyPayload não existe. Abortando envio de PAID.')
+          return
+        }
+        
+        // Usar payload salvo do pending, apenas atualizar status e approvedDate
+        utmifyData = {
+          ...utmifyPayload,
+          status: 'paid',
+          approvedDate: new Date().toISOString().replace('T', ' ').substring(0, 19)
         }
       }
       
@@ -1009,91 +1001,19 @@ export default function CheckoutPage() {
     }
   }
   
-  // Função para verificar status do pagamento
-  const checkPaymentStatus = async () => {
-    if (!pixData) return
-    
-    try {
-      // Adicionar timestamp para evitar cache
-      const timestamp = new Date().getTime()
-      const response = await fetch(`/api/check-blackcat-payment?id=${pixData.id}&_t=${timestamp}`, {
-        cache: 'no-store',
-        headers: {
-          'Cache-Control': 'no-cache'
-        }
-      })
-      
-      if (response.ok) {
-        const result = await response.json()
-        
-        // Extrair dados da resposta BlackCat
-        const data = result.data || result
-        const blackcatStatus = data.status?.toUpperCase()
-        
-        // Mapear status do BlackCat para nosso formato
-        // WAITING_PAYMENT, PAID, REFUSED, CANCELED
-        let status = 'waiting_payment'
-        if (blackcatStatus === 'PAID') {
-          status = 'paid'
-        } else if (blackcatStatus === 'WAITING_PAYMENT' || blackcatStatus === 'PROCESSING' || blackcatStatus === 'AUTHORIZED') {
-          status = 'waiting_payment'
-        } else if (blackcatStatus === 'REFUSED' || blackcatStatus === 'CANCELED') {
-          status = 'refused'
-        }
-        
-        // Atualizar status se mudou
-        if (status && status !== pixData.status) {
-          
-          // Se pagamento foi aprovado
-          if (status === 'paid' && !utmifySent.paid) {
-            const updatedPixData = { ...pixData, status: 'paid' }
-            setPixData(updatedPixData)
-            
-            // Reportar conversão do Google Ads
-            if (!conversionReported) {
-              reportPurchaseConversion(pixData.amount, pixData.id.toString())
-            }
-            
-            // Enviar para UTMify
-            await sendToUtmify('paid')
-          } else {
-            // Apenas atualizar o estado para outros status
-            setPixData(prev => prev ? { ...prev, status: status } : null)
-          }
-        }
-      }
-    } catch (error) {
-      // Erro silencioso
-    }
-  }
+  // Função removida - usando apenas startPaymentPolling com Umbrela
   
   // Enviar pending para UTMify quando PIX for gerado
   useEffect(() => {
     if (pixData && (pixData.status === 'waiting_payment' || pixData.status === 'WAITING_PAYMENT') && !utmifySent.pending) {
       sendToUtmify('waiting_payment')
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pixData?.id, pixData?.status, utmifySent.pending])
   
   // Iniciar polling quando PIX for gerado
   useEffect(() => {
-    if (pixData && pixData.status === 'waiting_payment') {
-      // Iniciar polling a cada 7 segundos
-      const interval = setInterval(() => {
-        checkPaymentStatus()
-      }, 7000)
-      
-      setPollingInterval(interval)
-      
-      // Limpar polling após 30 minutos
-      const timeout = setTimeout(() => {
-        if (interval) clearInterval(interval)
-      }, 30 * 60 * 1000)
-      
-      return () => {
-        clearInterval(interval)
-        clearTimeout(timeout)
-      }
-    } else if (pixData && pixData.status === 'paid') {
+    if (pixData && pixData.status === 'paid') {
       // Parar polling se pagamento foi confirmado
       if (pollingInterval) {
         clearInterval(pollingInterval)
@@ -1119,11 +1039,12 @@ export default function CheckoutPage() {
   
   // Monitorar mudanças no status do pagamento para Google Ads
   useEffect(() => {
-    if (pixData && pixData.status === 'paid' && !conversionReported) {
+    if (pixData && pixData.status === 'paid' && !conversionReported && pixData.id) {
       const totalPrice = getTotalPrice();
       reportPurchaseConversion(totalPrice, pixData.id.toString());
       setConversionReported(true);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pixData?.status, productName, kitMangueira, conversionReported])
 
   // Timer de 15 minutos para desconto PIX
@@ -2052,6 +1973,56 @@ export default function CheckoutPage() {
                               </>
                             )}
                           </Button>
+                          
+                          {/* Botão de DEBUG - Apenas em localhost */}
+                          {typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') && (
+                            <Button
+                              onClick={async () => {
+                                const savedTransaction = localStorage.getItem('current-pix-transaction')
+                                if (savedTransaction) {
+                                  const transaction = JSON.parse(savedTransaction)
+                                  const updatedPixData = { 
+                                    ...transaction.pixData, 
+                                    status: 'paid',
+                                    paidAt: new Date().toISOString()
+                                  }
+                                  
+                                  // 1. Reportar conversão Google Ads
+                                  if (!conversionReported) {
+                                    reportPurchaseConversion(updatedPixData.amount, updatedPixData.id.toString())
+                                    setConversionReported(true)
+                                  }
+                                  
+                                  // 2. Enviar PAID para UTMify (ANTES de remover do localStorage)
+                                  await sendToUtmify('paid')
+                                  
+                                  // 3. Atualizar estado e localStorage
+                                  setPixData(updatedPixData)
+                                  
+                                  localStorage.setItem('paid-order', JSON.stringify({
+                                    pixData: updatedPixData,
+                                    customerData: transaction.customerData,
+                                    addressData: transaction.addressData,
+                                    paidAt: new Date().toISOString()
+                                  }))
+                                  
+                                  // 4. Remover transação temporária (DEPOIS de enviar para UTMify)
+                                  localStorage.removeItem('current-pix-transaction')
+                                  
+                                  // 5. Parar polling
+                                  if (pollingInterval) {
+                                    clearInterval(pollingInterval)
+                                    setPollingInterval(null)
+                                  }
+                                }
+                              }}
+                              variant="outline"
+                              size="sm"
+                              className="w-full flex items-center justify-center gap-2 bg-yellow-500 text-white hover:bg-yellow-600 border-yellow-500"
+                            >
+                              🧪 SIMULAR PAGAMENTO (DEBUG)
+                            </Button>
+                          )}
                         </div>
                       </div>
                     )}
@@ -2187,7 +2158,7 @@ export default function CheckoutPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {reviews.map((review, index) => (
+            {reviews.map((review, index: number) => (
               <div key={index} className="bg-white border border-gray-200 rounded-lg p-4 shadow-sm">
                 <div className="flex items-start gap-3">
                   <img 
