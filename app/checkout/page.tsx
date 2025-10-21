@@ -1488,9 +1488,15 @@ export default function CheckoutPage() {
                       </select>
                       <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
                         <p className="text-xs text-green-800 leading-relaxed mb-2">
-                          <strong>📞 Nosso motoboy irá ligar para confirmar a escolha do cliente, não se preocupe que não terá taxas, é bem prático e rápido.</strong>
+                          <strong>💰 Forma de Pagamento: Você paga 50% agora via PIX e os outros 50% diretamente com o motoboy na entrega!</strong>
                         </p>
                         <p className="text-xs text-green-700 leading-relaxed mb-2">
+                          💳 <strong>Ao receber, você escolhe como pagar os 50% restantes:</strong> Dinheiro, PIX ou Cartão (na maquininha do motoboy).
+                        </p>
+                        <p className="text-xs text-green-700 leading-relaxed mb-2">
+                          📞 <strong>Nosso motoboy irá ligar para confirmar a escolha do cliente, não se preocupe que não terá taxas, é bem prático e rápido.</strong>
+                        </p>
+                        <p className="text-xs text-green-700 leading-relaxed">
                           🚀 <strong>Ao gerar o PIX, o motoboy mais próximo já recebe uma notificação e já fica no aguardo.</strong> Quando pagamento é concluído ele já aceita seu pedido e informamos o seu número pra ele te ligar e confirmar o pedido.
                         </p>
                         <p className="text-xs text-green-700 leading-relaxed">
@@ -1524,45 +1530,67 @@ export default function CheckoutPage() {
                     </div>
                   )}
 
-                  {/* Order Bump - Kit Mangueira */}
+                  {/* Escolha seu Brinde */}
                   {isGasProduct() && (
-                    <div className="border-2 border-dashed border-blue-300 rounded-lg p-4 bg-blue-50">
-                      <div className="flex items-start gap-3">
-                        <div className="flex-shrink-0 mt-1">
-                          <img 
-                            src="/images/kitmangueira.png" 
-                            alt="Kit Mangueira" 
-                            className="w-16 h-16 object-contain"
+                    <div className="border-2 border-dashed border-purple-300 rounded-lg p-4 bg-purple-50">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Plus className="w-5 h-5 text-purple-600" />
+                        <h4 className="font-bold text-purple-800 text-base">🎁 Escolha seu Brinde Grátis!</h4>
+                      </div>
+                      <p className="text-xs text-gray-700 mb-4 leading-relaxed">
+                        <strong>Parabéns!</strong> Você ganhou um brinde especial com sua compra. Escolha entre:
+                      </p>
+                      
+                      {/* Opção 1: Registro */}
+                      <div className="mb-3 p-3 border-2 border-purple-200 rounded-lg bg-white hover:border-purple-400 transition-colors">
+                        <div className="flex items-start gap-3">
+                          <input
+                            type="radio"
+                            id="brinde-registro"
+                            name="brinde"
+                            checked={kitMangueira === false}
+                            onChange={() => setKitMangueira(false)}
+                            className="mt-1 w-4 h-4 text-purple-600 border-purple-300 focus:ring-purple-600"
                           />
-                        </div>
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <Plus className="w-4 h-4 text-blue-600" />
-                            <h4 className="font-bold text-blue-800 text-sm">Oferta Especial!</h4>
-                          </div>
-                          <p className="text-xs text-gray-700 mb-3 leading-relaxed">
-                            <strong>Quer incluir um kit mangueira pro seu gás por um preço simbólico?</strong> 
-                            Assim você já faz um upgrade no seu lar, na sua cozinha e se sente mais seguro(a) 
-                            utilizando tudo novo. Não se preocupe que nosso entregador já faz a instalação 
-                            rapidinho e deixa tudo pronto pra você tá?
-                          </p>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <input
-                                type="checkbox"
-                                id="kit-mangueira"
-                                checked={kitMangueira}
-                                onChange={(e) => setKitMangueira(e.target.checked)}
-                                className="w-4 h-4 text-blue-600 border-blue-300 rounded focus:ring-blue-600"
+                          <div className="flex-1">
+                            <label htmlFor="brinde-registro" className="flex items-center gap-2 cursor-pointer">
+                              <img 
+                                src="/images/kitmangueira.png" 
+                                alt="Registro" 
+                                className="w-12 h-12 object-contain"
                               />
-                              <label htmlFor="kit-mangueira" className="text-sm font-medium text-gray-700">
-                                Sim, quero o Kit Mangueira
-                              </label>
-                            </div>
-                            <div className="text-right">
-                              <span className="text-xs text-gray-500 line-through">R$ 25,00</span>
-                              <div className="text-sm font-bold text-blue-600">R$ 9,30</div>
-                            </div>
+                              <div>
+                                <p className="font-semibold text-sm text-gray-800">Registro para Gás</p>
+                                <p className="text-xs text-gray-600">Segurança e praticidade</p>
+                              </div>
+                            </label>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Opção 2: Kit Tupperware */}
+                      <div className="p-3 border-2 border-purple-200 rounded-lg bg-white hover:border-purple-400 transition-colors">
+                        <div className="flex items-start gap-3">
+                          <input
+                            type="radio"
+                            id="brinde-tupperware"
+                            name="brinde"
+                            checked={kitMangueira === true}
+                            onChange={() => setKitMangueira(true)}
+                            className="mt-1 w-4 h-4 text-purple-600 border-purple-300 focus:ring-purple-600"
+                          />
+                          <div className="flex-1">
+                            <label htmlFor="brinde-tupperware" className="flex items-center gap-2 cursor-pointer">
+                              <img 
+                                src="/images/tupperware.png" 
+                                alt="Kit Tupperware" 
+                                className="w-12 h-12 object-contain"
+                              />
+                              <div>
+                                <p className="font-semibold text-sm text-gray-800">Kit de Vasilhas Tupperware</p>
+                                <p className="text-xs text-gray-600">3 potes herméticos de qualidade</p>
+                              </div>
+                            </label>
                           </div>
                         </div>
                       </div>
