@@ -41,6 +41,15 @@ export async function POST(request: NextRequest) {
     
     // Obter API Key dinâmica baseada no domínio
     const apiKey = getUtmifyApiKey(request)
+    const host = request.headers.get('host') || ''
+    
+    console.log('📤 [UTMify API] Enviando:', {
+      status: body.status,
+      orderId: body.orderId,
+      host: host,
+      apiKey: apiKey.substring(0, 10) + '...',
+      hasApprovedDate: !!body.approvedDate
+    })
 
     const response = await fetch("https://api.utmify.com.br/api-credentials/orders", {
       method: "POST",
@@ -50,9 +59,12 @@ export async function POST(request: NextRequest) {
       },
       body: JSON.stringify(body),
     })
+    
+    console.log('📬 [UTMify API] Resposta:', response.status, response.ok)
 
     if (!response.ok) {
       const errorText = await response.text()
+      console.error('❌ [UTMify API] Erro:', response.status, errorText)
       return NextResponse.json({ 
         error: "Erro ao enviar dados para UTMify",
         status: response.status,
@@ -61,8 +73,10 @@ export async function POST(request: NextRequest) {
     }
 
     const data = await response.json()
+    console.log('✅ [UTMify API] Sucesso:', body.status, 'orderId:', body.orderId)
     return NextResponse.json(data)
   } catch (error) {
+    console.error('❌ [UTMify API] Exception:', error)
     return NextResponse.json({ 
       error: "Erro ao enviar dados para UTMify",
       details: error instanceof Error ? error.message : 'Unknown error'

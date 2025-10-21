@@ -1,0 +1,526 @@
+# Sistema de Rastreamento: Utmify + Google Ads
+
+## 📋 Visão Geral
+
+Este documento explica como funciona o sistema de rastreamento de vendas, incluindo:
+- Envio de dados para o **Utmify** (rastreamento de conversões e comissões)
+- Disparo de conversões para o **Google Ads** (otimização de campanhas)
+
+---
+
+## 🔄 Fluxo Completo de uma Venda
+
+### 1️⃣ **Cliente Cria um Pedido PIX**
+
+**Arquivo:** `Backend/api/server.js` (linha 537-808)  
+**Endpoint:** `POST /api/payment/pix`
+
+**O que acontece:**
+
+1. Cliente preenche o formulário de checkout com:
+   - Nome completo
+   - CPF
+   - Email
+   - Telefone
+   - Produto selecionado
+
+2. Backend cria uma transação PIX na **Umbrela** (gateway de pagamento)
+
+3. **Primeiro envio para Utmify** com status `waiting_payment`:
+   ```javascript
+   // Linhas 742-762
+   await sendUtmify({
+     orderId: String(txId),
+     platform: 'RecargaGames',
+     paymentMethod: 'pix',
+     status: 'waiting_payment',  // ⚠️ VENDA PENDENTE
+     dates: { createdAt: createdAtUTC },
+     customer: { name, email, phone, document, ip },
+     products: [...],
+     tracking: { utm_source, utm_campaign, ... },
+     commission: { totalPriceInCents, gatewayFeeInCents, ... }
+   });
+   ```
+
+4. Sistema salva os dados da transação em memória (`ordersStore`)
+
+5. Email automático é enviado ao cliente com o código PIX
+
+**Status no Utmify:** `waiting_payment` (venda pendente)
+
+---
+
+### 2️⃣ **Cliente Paga o PIX**
+
+Existem **2 formas** de detectar o pagamento:
+
+#### **Forma A: Webhook da Umbrela** (Recomendado)
+
+**Arquivo:** `Backend/api/server.js` (linha 913-989)  
+**Endpoint:** `POST /webhooks/umbrela`
+
+A Umbrela envia automaticamente uma notificação quando o pagamento é confirmado.
+
+**O que acontece:**
+
+1. Umbrela detecta o pagamento e envia webhook para o servidor
+
+2. Backend mapeia o status:
+   ```javascript
+   // Linhas 922-928
+   if (rawStatus === 'PAID') utmStatus = 'paid';
+   ```
+
+3. **Segundo envio para Utmify** com status `paid`:
+   ```javascript
+   // Linhas 946-956
+   await sendUtmify({
+     orderId: String(txId),
+     status: 'paid',  // ✅ VENDA PAGA
+     dates: { 
+       createdAt: createdAtUTC, 
+       approvedDate: approvedDateUTC  // Data/hora do pagamento
+     },
+     customer: { ... },
+     products: [ ... ],
+     tracking: { ... },
+     commission: { ... }
+   });
+   ```
+
+4. Email de confirmação é enviado ao cliente
+
+5. Email de "processamento" é agendado para 30 minutos depois (caso haja atraso na entrega)
+
+**Status no Utmify:** `paid` (venda confirmada)
+
+---
+
+#### **Forma B: Polling do Frontend** (Backup)
+
+**Arquivo:** `Frontend/js/checkout.js` (linha 221-249)
+
+O frontend consulta o status a cada 4 segundos:
+
+```javascript
+// Linha 226-248
+statusInterval = setInterval(async () => {
+  const r = await fetch(`/api/payment/status/${txId}`);
+  const j = await r.json();
+  
+  if (j.paid === true) {
+    stopStatusPolling();
+    sendGoogleConversion();  // 🎯 DISPARA CONVERSÃO GOOGLE ADS
+    showSuccess();
+  }
+}, 4000);
+```
+
+**Arquivo:** `Backend/api/server.js` (linha 810-911)  
+**Endpoint:** `GET /api/payment/status/:id`
+
+Quando o frontend detecta `paid: true`, ele:
+1. Para o polling
+2. **Dispara a conversão do Google Ads** (ver próxima seção)
+3. Mostra tela de sucesso
+
+O backend também envia para o Utmify caso ainda não tenha sido enviado (linhas 854-906).
+
+---
+
+### 3️⃣ **Conversão do Google Ads**
+
+**Arquivo:** `Frontend/js/checkout.js` (linha 256-287)
+
+**Quando é disparada:**
+- Apenas quando o status muda para `paid` (pagamento confirmado)
+- Apenas uma vez por transação (controle via flag `conversionSent`)
+
+**Como funciona:**
+
+```javascript
+function sendGoogleConversion() {
+  // Verifica se já foi enviada
+  if (conversionSent) return;
+  
+  // Verifica se gtag está disponível
+  if (typeof gtag === 'undefined') {
+    // Aguarda 2 segundos e tenta novamente
+    setTimeout(() => sendGoogleConversion(), 2000);
+    return;
+  }
+  
+  // Envia conversão para o Google Ads
+  gtag('event', 'conversion', {
+    'send_to': 'AW-17655865530/KkrgCNSwh64bELrB_OJB',  // ID da conversão
+    'value': currentTransactionValue,  // Valor da venda
+    'currency': 'BRL',
+    'transaction_id': currentTxId  // ID único da transação
+  });
+  
+  conversionSent = true;
+  console.log('✅ Conversão Google Ads enviada:', currentTxId, currentTransactionValue);
+}
+```
+
+**Dados enviados:**
+- **send_to:** ID da conversão do Google Ads
+- **value:** Valor total da venda (com desconto aplicado)
+- **currency:** BRL (Real Brasileiro)
+- **transaction_id:** ID da transação na Umbrela (evita duplicatas)
+
+---
+
+## 📊 Resumo dos Status no Utmify
+
+| Status | Quando é enviado | Descrição |
+|--------|------------------|-----------|
+| `waiting_payment` | Ao criar o PIX | Venda pendente, aguardando pagamento |
+| `paid` | Quando o pagamento é confirmado | Venda paga e confirmada |
+| `refused` | Quando o pagamento é recusado | Venda recusada |
+| `refunded` | Quando há estorno | Venda estornada |
+| `chargedback` | Quando há chargeback | Contestação de pagamento |
+
+---
+
+## 🔐 Proteção Contra Duplicatas
+
+O sistema possui **3 camadas de proteção** contra envios duplicados:
+
+### 1. Controle de Status Processados
+
+```javascript
+// Linhas 89-111
+const processedStatus = new Map();
+
+function wasStatusProcessed(txId, status) {
+  const key = `${txId}:${status}`;
+  return processedStatus.has(key);
+}
+
+function markStatusProcessed(txId, status) {
+  const key = `${txId}:${status}`;
+  processedStatus.set(key, Date.now());
+  // Limpa após 24h para não acumular memória
+  setTimeout(() => processedStatus.delete(key), 24 * 60 * 60 * 1000);
+}
+```
+
+### 2. Verificação Antes de Enviar
+
+```javascript
+// Exemplo: linha 742
+if (!wasStatusProcessed(String(txId), 'waiting_payment')) {
+  await sendUtmify({ ... });
+  markStatusProcessed(String(txId), 'waiting_payment');
+}
+```
+
+### 3. Transaction ID no Google Ads
+
+O Google Ads usa o `transaction_id` para identificar conversões únicas e ignorar duplicatas automaticamente.
+
+---
+
+## 📧 Sistema de Emails
+
+### Email 1: PIX Criado
+- **Quando:** Imediatamente após criar o PIX
+- **Conteúdo:** Código PIX para pagamento
+- **Função:** `sendPixCreatedEmail()` (linha 120-199)
+
+### Email 2: Pagamento Confirmado
+- **Quando:** Quando status muda para `paid`
+- **Conteúdo:** Confirmação de pagamento aprovado
+- **Função:** `sendPaymentConfirmedEmail()` (linha 201-279)
+
+### Email 3: Processamento Atrasado
+- **Quando:** 30 minutos após o pagamento (se ainda não entregue)
+- **Conteúdo:** Aviso de instabilidade temporária
+- **Função:** `sendProcessingDelayEmail()` (linha 281-363)
+- **Agendamento:** `scheduleDelayedEmail()` (linha 368-384)
+
+---
+
+## 🎯 Parâmetros UTM Rastreados
+
+O sistema captura e envia para o Utmify os seguintes parâmetros:
+
+```javascript
+// Linhas 395-407
+{
+  src: utm_source ou src,
+  sck: gclid ou gbraid ou wbraid ou sck,
+  utm_source: 'google',
+  utm_medium: 'cpc',
+  utm_campaign: 'nome_da_campanha',
+  utm_content: 'anuncio_1',
+  utm_term: 'palavra_chave'
+}
+```
+
+**Como são capturados:**
+1. Frontend envia via `POST /track-utm` (linha 409-422)
+2. Backend salva em cookie `utm_tracking`
+3. Cookie é lido ao criar a transação PIX
+
+---
+
+## 🔧 Configuração Necessária
+
+### Variáveis de Ambiente (.env)
+
+```bash
+# Umbrela (Gateway de Pagamento)
+UMBRELA_BASE_URL=https://api-gateway.umbrellapag.com/api
+UMBRELA_API_KEY=sua_chave_api
+UMBRELA_USER_AGENT=UMBRELLAB2B/1.0
+UMBRELA_POSTBACK_URL=https://seu-dominio.com/webhooks/umbrela
+PIX_EXPIRES_DAYS=1
+
+# Utmify (Rastreamento)
+UTMIFY_TOKEN=seu_token_utmify
+
+# Email (Resend)
+RESEND_API_KEY=sua_chave_resend
+EMAIL_FROM=noreply@digitrongames.com.br
+LOGO_URL=https://i.imgur.com/placeholder.png
+
+# Servidor
+PORT=3000
+SAME_ORIGIN_DEV=true
+```
+
+### Google Ads (Frontend)
+
+No arquivo HTML, adicione o script do Google Ads:
+
+```html
+<!-- Google tag (gtag.js) -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=AW-17655865530"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+  gtag('config', 'AW-17655865530');
+</script>
+```
+
+---
+
+## 📈 Dados Enviados para o Utmify
+
+### Estrutura Completa
+
+```javascript
+{
+  orderId: "12345",                    // ID da transação
+  platform: "RecargaGames",            // Nome da plataforma
+  paymentMethod: "pix",                // Método de pagamento
+  status: "paid",                      // Status da venda
+  
+  commission: {
+    totalPriceInCents: 5000,           // R$ 50,00
+    gatewayFeeInCents: 250,            // R$ 2,50 (taxa do gateway)
+    userCommissionInCents: 4750        // R$ 47,50 (comissão líquida)
+  },
+  
+  createdAt: "2025-10-21 03:19:00",    // Data de criação
+  approvedDate: "2025-10-21 03:25:00", // Data de aprovação (null se pendente)
+  refundedAt: null,                    // Data de estorno (null se não estornado)
+  
+  customer: {
+    name: "João Silva",
+    email: "joao@example.com",
+    phone: "11999999999",
+    document: "12345678900",           // CPF
+    country: "BR",
+    ip: "192.168.1.1"
+  },
+  
+  products: [
+    {
+      id: "ff-diamonds-100",
+      name: "100 Diamantes Free Fire",
+      planId: null,
+      planName: null,
+      quantity: 1,
+      priceInCents: 5000
+    }
+  ],
+  
+  trackingParameters: {
+    src: "google",
+    sck: "Cj0KCQiA...",                // gclid
+    utm_source: "google",
+    utm_campaign: "campanha_ff",
+    utm_medium: "cpc",
+    utm_content: "anuncio_1",
+    utm_term: "diamantes+free+fire"
+  },
+  
+  isTest: false                        // true para testes
+}
+```
+
+---
+
+## 🚀 Fluxo Visual Completo
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│ 1. CLIENTE ACESSA O CHECKOUT                                    │
+│    - Preenche formulário (nome, CPF, email, telefone)           │
+│    - Seleciona produto                                          │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ 2. BACKEND CRIA TRANSAÇÃO PIX (Umbrela)                        │
+│    - Gera código PIX                                            │
+│    - Salva dados em memória (ordersStore)                       │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ 3. PRIMEIRO ENVIO PARA UTMIFY                                   │
+│    ✉️  Status: waiting_payment                                  │
+│    📊 Dados: cliente, produto, UTM, comissão                    │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ 4. EMAIL 1: PIX CRIADO                                          │
+│    📧 Envia código PIX para o cliente                           │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ 5. CLIENTE PAGA O PIX                                           │
+│    💰 Pagamento confirmado no banco                             │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ 6. UMBRELA ENVIA WEBHOOK                                        │
+│    🔔 POST /webhooks/umbrela                                    │
+│    📨 Status: PAID                                              │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ 7. SEGUNDO ENVIO PARA UTMIFY                                    │
+│    ✉️  Status: paid                                             │
+│    📊 Dados: mesmos dados + approvedDate                        │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ 8. EMAIL 2: PAGAMENTO CONFIRMADO                                │
+│    📧 Confirma pagamento aprovado                               │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ 9. FRONTEND DETECTA PAGAMENTO (Polling)                        │
+│    🔄 GET /api/payment/status/:id (a cada 4s)                   │
+│    ✅ Resposta: { paid: true }                                  │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ 10. CONVERSÃO GOOGLE ADS                                        │
+│     🎯 gtag('event', 'conversion', { ... })                     │
+│     📊 Envia: valor, moeda, transaction_id                      │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ 11. TELA DE SUCESSO                                             │
+│     🎉 Cliente vê confirmação de compra                         │
+└─────────────────────────────────────────────────────────────────┘
+                              ↓
+┌─────────────────────────────────────────────────────────────────┐
+│ 12. EMAIL 3: PROCESSAMENTO (após 30 min)                       │
+│     ⏰ Se ainda não entregue, avisa sobre atraso                │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## ⚠️ Pontos Importantes
+
+### 1. Dois Envios para o Utmify
+- **Primeiro:** `waiting_payment` (ao criar o PIX)
+- **Segundo:** `paid` (quando o pagamento é confirmado)
+
+### 2. Conversão Google Ads
+- Disparada **apenas no frontend**
+- Apenas quando `paid: true`
+- Usa `transaction_id` para evitar duplicatas
+
+### 3. Webhook vs Polling
+- **Webhook:** Forma principal (mais rápido e confiável)
+- **Polling:** Backup caso webhook falhe
+
+### 4. Proteção Contra Duplicatas
+- Sistema verifica se status já foi processado
+- Usa Map em memória com limpeza automática (24h)
+- Google Ads ignora conversões duplicadas via `transaction_id`
+
+### 5. Rastreamento UTM
+- Capturado via cookie `utm_tracking`
+- Inclui gclid, gbraid, wbraid (Google Ads)
+- Enviado em todos os eventos do Utmify
+
+---
+
+## 🐛 Troubleshooting
+
+### Conversão Google Ads não está sendo enviada
+
+**Possíveis causas:**
+1. Script do gtag não carregou
+   - Solução: Verificar console do navegador
+   
+2. `conversionSent` já está true
+   - Solução: Recarregar a página
+   
+3. `currentTransactionValue` é 0 ou null
+   - Solução: Verificar se o valor está sendo salvo corretamente
+
+### Utmify não está recebendo dados
+
+**Possíveis causas:**
+1. `UTMIFY_TOKEN` não configurado
+   - Solução: Adicionar no arquivo `.env`
+   
+2. Status já foi processado
+   - Solução: Verificar logs do servidor
+   
+3. Erro na API do Utmify
+   - Solução: Verificar logs de erro
+
+### Webhook não está funcionando
+
+**Possíveis causas:**
+1. URL do webhook incorreta na Umbrela
+   - Solução: Verificar `UMBRELA_POSTBACK_URL`
+   
+2. Servidor não está acessível publicamente
+   - Solução: Usar ngrok ou similar para testes
+
+---
+
+## 📝 Logs Úteis
+
+O sistema gera logs detalhados para debug:
+
+```
+✅ Email de PIX enviado para cliente@example.com
+✅ Conversão Google Ads enviada: 12345 50.00
+⏰ Email de processamento agendado para cliente@example.com em 30 minutos
+❌ Email de processamento cancelado para transação 12345
+```
+
+---
+
+## 🔗 Referências
+
+- **Utmify API:** https://api.utmify.com.br/api-credentials/orders
+- **Google Ads Conversions:** https://support.google.com/google-ads/answer/6331314
+- **Umbrela API:** https://api-gateway.umbrellapag.com/api
+
+---
+
+**Última atualização:** 21/10/2025

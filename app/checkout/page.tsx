@@ -857,11 +857,26 @@ export default function CheckoutPage() {
 
   // Função para enviar dados ao UTMify
   const sendToUtmify = async (status: 'waiting_payment' | 'paid') => {
-    if (!pixData) return
+    console.log(`📤 [sendToUtmify] Chamado com status: ${status}`, {
+      hasPixData: !!pixData,
+      utmifySent,
+      pixDataId: pixData?.id
+    })
+    
+    if (!pixData) {
+      console.log('❌ [sendToUtmify] Sem pixData, abortando')
+      return
+    }
     
     // Verificar se já foi enviado para evitar duplicatas
-    if (status === 'waiting_payment' && utmifySent.pending) return
-    if (status === 'paid' && utmifySent.paid) return
+    if (status === 'waiting_payment' && utmifySent.pending) {
+      console.log('⚠️ [sendToUtmify] waiting_payment já enviado, pulando')
+      return
+    }
+    if (status === 'paid' && utmifySent.paid) {
+      console.log('⚠️ [sendToUtmify] paid já enviado, pulando')
+      return
+    }
     
     try {
       let utmifyData;
@@ -991,11 +1006,19 @@ export default function CheckoutPage() {
         }
       }
       
+      console.log('📤 [sendToUtmify] Enviando para API:', {
+        status,
+        orderId: utmifyData.orderId,
+        hasApprovedDate: !!utmifyData.approvedDate
+      })
+      
       const response = await fetch('/api/send-to-utmify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(utmifyData)
       })
+      
+      console.log('📬 [sendToUtmify] Resposta da API:', response.status, response.ok)
       
       if (response.ok) {
         const key = status === 'waiting_payment' ? 'pending' : 'paid'
@@ -1003,9 +1026,13 @@ export default function CheckoutPage() {
         setUtmifySent(newState)
         // Salvar no localStorage
         localStorage.setItem('utmify-sent', JSON.stringify(newState))
+        console.log(`✅ [sendToUtmify] ${status} marcado como enviado!`, newState)
+      } else {
+        const errorText = await response.text()
+        console.error(`❌ [sendToUtmify] Erro ao enviar ${status}:`, errorText)
       }
     } catch (error) {
-      // Erro silencioso
+      console.error('❌ [sendToUtmify] Exception:', error)
     }
   }
   
