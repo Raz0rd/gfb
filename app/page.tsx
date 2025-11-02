@@ -970,7 +970,7 @@ export default function HomePage() {
             {/* 5. COMBO 2 BOTIJÕES */}
             <ProductCard
               name="Combo 2 Botijões de Gás 13kg"
-              price="R$ 211,90"
+              price="R$ 189,90"
               image="/images/combo 2 botijao 13kg.png"
               alt="Combo 2 Botijões de Gás 13kg"
               description="Combo completo com 2 botijões de gás P13 COM botijões novos lacrados. Máxima economia!"

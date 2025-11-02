@@ -155,7 +155,7 @@ export default function CheckoutPage() {
     "Botijão de Gás 8kg P8": 9451, // R$ 94,51 em centavos (COM botijão)
     "Botijão de Gás 8kg": 9451, // R$ 94,51 em centavos (compatibilidade)
     "3 Garrafões de Água 20L": 6540, // R$ 65,40 em centavos (COM vasilhames)
-    "Combo 2 Botijões de Gás 13kg": 21190, // R$ 211,90 em centavos (COM botijões)
+    "Combo 2 Botijões de Gás 13kg": 18990, // R$ 189,90 em centavos (COM botijões)
     "Combo Gás + Garrafão": 12320, // R$ 123,20 em centavos
   }
 
