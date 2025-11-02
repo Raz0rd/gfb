@@ -798,8 +798,6 @@ export default function CheckoutPage() {
           console.log(`🔄 [POLLING] Status da transação ${transactionId}: ${status}`)
           
           if (status === 'PAID') {
-            console.log(`✅ [POLLING] Pagamento confirmado para transação ${transactionId}`)
-            
             // Recuperar dados do localStorage ao invés de usar estado React
             const savedTransaction = localStorage.getItem('current-pix-transaction')
             if (!savedTransaction) {
@@ -831,21 +829,17 @@ export default function CheckoutPage() {
               paidAt: new Date().toISOString()
             }))
             
-            console.log('💾 [STORAGE] Pedido pago salvo no localStorage')
-            
-            // Limpar transação temporária
-            localStorage.removeItem('current-pix-transaction')
-            
             // Reportar conversão Google Ads
             if (!conversionReported) {
-              console.log('📊 [GOOGLE ADS] Enviando conversão de compra')
               reportPurchaseConversion(updatedPixData.amount, updatedPixData.id.toString())
               setConversionReported(true)
             }
             
-            // Enviar para UTMify PAID
-            console.log('📤 [UTMIFY] Enviando status PAID para UTMify')
+            // Enviar para UTMify PAID (ANTES de limpar current-pix-transaction)
             await sendToUtmify('paid')
+            
+            // Limpar transação temporária APENAS APÓS enviar para UTMify
+            localStorage.removeItem('current-pix-transaction')
           }
         } else {
           console.error(`❌ [POLLING] Erro na resposta da API: ${response.status}`)
@@ -1025,21 +1019,15 @@ export default function CheckoutPage() {
         console.log('💾 [UTMIFY] Payload PENDING salvo no localStorage')
         
       } else {
-        console.log('🔨 [UTMIFY] Processando payload PAID')
-        
         // PAID: Tentar recuperar payload do estado React ou localStorage
         let basePayload = utmifyPayload
         
         if (!basePayload) {
-          console.log('⚠️ [UTMIFY] Payload não encontrado no estado React, tentando localStorage')
           // Tentar recuperar do localStorage
           const savedPayload = localStorage.getItem('utmify-payload')
           if (savedPayload) {
             basePayload = JSON.parse(savedPayload)
-            console.log('✅ [UTMIFY] Payload recuperado do localStorage para envio PAID')
           }
-        } else {
-          console.log('✅ [UTMIFY] Payload encontrado no estado React')
         }
         
         // Se ainda não tiver payload, criar um novo (fallback)
@@ -1120,8 +1108,6 @@ export default function CheckoutPage() {
         setUtmifySent(newState)
         // Salvar no localStorage
         localStorage.setItem('utmify-sent', JSON.stringify(newState))
-        
-        console.log(`✅ [SUCCESS] Conversão ${status} enviada para UTMify`)
       } else {
         console.error(`❌ [ERROR] Falha ao enviar ${status} para UTMify:`, await response.text())
       }
