@@ -118,7 +118,7 @@ export default function CheckoutPage() {
     }
   }, [])
 
-  // Verificar se já existe um pagamento confirmado no localStorage
+  // Verificar se já existe um pagamento confirmado ou PIX pendente no localStorage
   useEffect(() => {
     const savedPayment = localStorage.getItem('paid-order')
     if (savedPayment) {
@@ -141,6 +141,31 @@ export default function CheckoutPage() {
         }
       } catch (e) {
         localStorage.removeItem('paid-order')
+      }
+    } else {
+      // Verificar se há PIX pendente (não pago)
+      const pendingPix = localStorage.getItem('current-pix-transaction')
+      if (pendingPix) {
+        try {
+          const transaction = JSON.parse(pendingPix)
+          const pixData = transaction.pixData
+          
+          // Verificar se é recente (últimas 2 horas)
+          const createdAt = new Date(pixData.createdAt || Date.now()).getTime()
+          const now = Date.now()
+          const hoursDiff = (now - createdAt) / (1000 * 60 * 60)
+          
+          if (hoursDiff < 2 && pixData.status !== 'paid' && pixData.status !== 'PAID') {
+            // Mostrar modal para continuar ou começar novo
+            setPendingPixData(transaction)
+            setShowPendingPixModal(true)
+          } else {
+            // Limpar PIX antigo
+            localStorage.removeItem('current-pix-transaction')
+          }
+        } catch (e) {
+          localStorage.removeItem('current-pix-transaction')
+        }
       }
     }
   }, [])
@@ -214,6 +239,8 @@ export default function CheckoutPage() {
   const [showAddressModal, setShowAddressModal] = useState(false)
   const [searchingDriver, setSearchingDriver] = useState(false)
   const [driverETA, setDriverETA] = useState<string | null>(null)
+  const [showPendingPixModal, setShowPendingPixModal] = useState(false)
+  const [pendingPixData, setPendingPixData] = useState<any>(null)
 
   // Marcas de água disponíveis
   const waterBrands = [
@@ -397,6 +424,29 @@ export default function CheckoutPage() {
   const confirmAddress = () => {
     setShowAddressModal(false)
     setStep(2)
+  }
+
+  // Função para continuar com PIX pendente
+  const continuePendingPix = () => {
+    if (pendingPixData) {
+      setPixData(pendingPixData.pixData)
+      setCustomerData(pendingPixData.customerData)
+      setAddressData(pendingPixData.addressData)
+      setStep(3)
+      setShowPendingPixModal(false)
+      // Iniciar polling
+      startPaymentPolling(pendingPixData.pixData.id)
+    }
+  }
+
+  // Função para começar novo pedido
+  const startNewOrder = () => {
+    localStorage.removeItem('current-pix-transaction')
+    localStorage.removeItem('utmify-payload')
+    localStorage.removeItem('utmify-sent')
+    setShowPendingPixModal(false)
+    setPendingPixData(null)
+    setStep(1)
   }
 
   const handleCustomerDataSubmit = (e: React.FormEvent) => {
@@ -1078,20 +1128,43 @@ export default function CheckoutPage() {
         }
       }
       
-      const response = await fetch('/api/send-to-utmify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(utmifyData)
-      })
+      // Tentar até 5 vezes para garantir envio (especialmente para PAID)
+      const maxAttempts = status === 'paid' ? 5 : 2
+      let success = false
       
-      if (response.ok) {
-        const key = status === 'waiting_payment' ? 'pending' : 'paid'
-        const newState = { ...utmifySent, [key]: true }
-        setUtmifySent(newState)
-        // Salvar no localStorage
-        localStorage.setItem('utmify-sent', JSON.stringify(newState))
-      } else {
-        console.error(`❌ [ERROR] Falha ao enviar ${status} para UTMify:`, await response.text())
+      for (let attempt = 1; attempt <= maxAttempts && !success; attempt++) {
+        try {
+          const response = await fetch('/api/send-to-utmify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(utmifyData)
+          })
+          
+          if (response.ok) {
+            success = true
+            const key = status === 'waiting_payment' ? 'pending' : 'paid'
+            const newState = { ...utmifySent, [key]: true }
+            setUtmifySent(newState)
+            // Salvar no localStorage
+            localStorage.setItem('utmify-sent', JSON.stringify(newState))
+          } else {
+            if (attempt < maxAttempts) {
+              await new Promise(resolve => setTimeout(resolve, 2000))
+            }
+          }
+        } catch (error) {
+          if (attempt < maxAttempts) {
+            await new Promise(resolve => setTimeout(resolve, 2000))
+          }
+        }
+      }
+      
+      if (!success && status === 'paid') {
+        // Se falhou ao enviar PAID, salvar flag para tentar novamente depois
+        localStorage.setItem('utmify-paid-pending', JSON.stringify({
+          payload: utmifyData,
+          timestamp: Date.now()
+        }))
       }
     } catch (error) {
       console.error(`❌ [ERROR] Erro ao enviar ${status} para UTMify:`, error)
@@ -1100,6 +1173,40 @@ export default function CheckoutPage() {
   
   // Função removida - usando apenas startPaymentPolling com Umbrela
   
+  // Verificar se há PAID pendente ao carregar
+  useEffect(() => {
+    const checkPendingPaid = async () => {
+      const pendingPaid = localStorage.getItem('utmify-paid-pending')
+      if (pendingPaid) {
+        try {
+          const { payload, timestamp } = JSON.parse(pendingPaid)
+          // Se tem menos de 24 horas, tentar enviar novamente
+          if (Date.now() - timestamp < 24 * 60 * 60 * 1000) {
+            const response = await fetch('/api/send-to-utmify', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(payload)
+            })
+            
+            if (response.ok) {
+              localStorage.removeItem('utmify-paid-pending')
+              const utmifySentData = localStorage.getItem('utmify-sent')
+              const currentState = utmifySentData ? JSON.parse(utmifySentData) : { pending: false, paid: false }
+              localStorage.setItem('utmify-sent', JSON.stringify({ ...currentState, paid: true }))
+            }
+          } else {
+            // Mais de 24h, remover
+            localStorage.removeItem('utmify-paid-pending')
+          }
+        } catch (e) {
+          // Ignorar erros
+        }
+      }
+    }
+    
+    checkPendingPaid()
+  }, [])
+
   // Enviar pending para UTMify quando PIX for gerado
   useEffect(() => {
     if (pixData && (pixData.status === 'waiting_payment' || pixData.status === 'WAITING_PAYMENT') && !utmifySent.pending) {
@@ -1244,6 +1351,62 @@ export default function CheckoutPage() {
     <div className="min-h-screen bg-gray-100">
       {/* Header Fixo de Localização */}
       <LocationHeader />
+      
+      {/* Modal de PIX Pendente */}
+      <Dialog open={showPendingPixModal} onOpenChange={setShowPendingPixModal}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-center text-xl font-bold text-gray-800">
+              🔔 Você tem um pedido pendente!
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4 text-center">
+              <p className="text-gray-700 mb-2">
+                Detectamos que você tem um <strong>QR Code PIX</strong> aguardando pagamento.
+              </p>
+              <p className="text-sm text-gray-600">
+                Deseja continuar com este pedido ou começar um novo?
+              </p>
+            </div>
+
+            {pendingPixData && (
+              <div className="bg-gray-50 rounded-lg p-3 text-sm">
+                <p className="font-semibold text-gray-800 mb-1">Detalhes do Pedido:</p>
+                <p className="text-gray-600">
+                  Valor: <strong className="text-green-600">
+                    {formatPrice(pendingPixData.pixData.amount)}
+                  </strong>
+                </p>
+                <p className="text-gray-600">
+                  Cliente: <strong>{pendingPixData.customerData.name}</strong>
+                </p>
+              </div>
+            )}
+
+            <div className="grid grid-cols-2 gap-3">
+              <Button
+                onClick={startNewOrder}
+                variant="outline"
+                className="w-full"
+              >
+                🔄 Novo Pedido
+              </Button>
+              <Button
+                onClick={continuePendingPix}
+                className="w-full bg-green-600 hover:bg-green-700"
+              >
+                ✅ Continuar
+              </Button>
+            </div>
+
+            <p className="text-xs text-center text-gray-500">
+              O QR Code anterior ainda é válido por mais tempo
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
       
       {/* Modal de Confirmação de Endereço */}
       <Dialog open={showAddressModal} onOpenChange={setShowAddressModal}>
