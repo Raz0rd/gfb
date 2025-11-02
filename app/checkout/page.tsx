@@ -519,11 +519,8 @@ export default function CheckoutPage() {
         }
       }
       
-      // 🔥 IMPORTANTE: Se produto requer pagamento parcelado, gerar PIX apenas com 50%
+      // Cobrar valor integral
       let pixAmount = totalPrice
-      if (requiresPartialPayment()) {
-        pixAmount = Math.round(totalPrice / 2) // 50% do valor final
-      }
       
       let productTitle = productName
       
@@ -647,10 +644,7 @@ export default function CheckoutPage() {
         createdAt: new Date().toISOString()
       }))
       
-      // Reportar conversão de Iniciar finalização de compra (QR Code gerado)
-      reportInitiateCheckout()
-      
-      // Iniciar polling para verificar pagamento (API Umbrela)
+      // Iniciar polling para verificar pagamento (API Ezzpag)
       startPaymentPolling(pixResponse.id)
     } catch (err) {
       setPixError("Erro ao gerar PIX. Tente novamente.")
@@ -699,48 +693,11 @@ export default function CheckoutPage() {
     return basePrice + kitPrice
   }
 
-  // Verificar se produto requer pagamento parcelado (apenas para GÁS, acima de R$ 50)
-  const requiresPartialPayment = () => {
-    // Pagamento 50% APENAS para produtos de gás
-    if (!isGasProduct()) return false
-    
-    const totalPrice = getTotalPrice()
-    return totalPrice > 5000 // Mais de R$ 50,00 em centavos
-  }
-
-  // Calcular valor a pagar agora (50% se parcelado, 100% se não)
-  // IMPORTANTE: Usa o valor FINAL após desconto PIX
+  // Calcular valor a pagar (100% do valor)
   const getPaymentAmount = () => {
     const totalPrice = getTotalPrice()
     const finalPrice = totalPrice - pixDiscount // Valor após desconto
-    if (requiresPartialPayment()) {
-      return Math.round(finalPrice / 2) // 50% do valor FINAL
-    }
     return finalPrice // 100% do valor FINAL
-  }
-
-  // Calcular valor restante a pagar na entrega
-  const getRemainingAmount = () => {
-    if (!requiresPartialPayment()) return 0
-    const totalPrice = getTotalPrice()
-    const finalPrice = totalPrice - pixDiscount // Valor após desconto
-    return finalPrice - getPaymentAmount()
-  }
-
-  // Função para reportar conversão após gerar QR Code (Iniciar finalização de compra)
-  const reportInitiateCheckout = () => {
-    if (typeof window === 'undefined' || !window.gtag) return
-    
-    const initiateCheckoutTag = process.env.NEXT_PUBLIC_GOOGLE_ADS_INITIATE_CHECKOUT
-    if (!initiateCheckoutTag) return
-    
-    try {
-      window.gtag('event', 'conversion', {
-        'send_to': initiateCheckoutTag
-      })
-    } catch (error) {
-      // Erro silencioso
-    }
   }
 
   // Função para obter tag de conversão COMPLETA baseada no domínio
@@ -1241,15 +1198,7 @@ export default function CheckoutPage() {
     }
   }, [pixData?.id, pixData?.status, smsReminderSent])
   
-  // Monitorar mudanças no status do pagamento para Google Ads
-  useEffect(() => {
-    if (pixData && pixData.status === 'paid' && !conversionReported && pixData.id) {
-      const totalPrice = getTotalPrice();
-      reportPurchaseConversion(totalPrice, pixData.id.toString());
-      setConversionReported(true);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pixData?.status, productName, kitMangueira, conversionReported])
+  // useEffect removido - conversão agora é enviada apenas no polling quando PAID
 
   // Timer de 15 minutos para desconto PIX
   useEffect(() => {
@@ -1420,8 +1369,8 @@ export default function CheckoutPage() {
           
           {addressData && (
             <div className="space-y-4">
-              <div className="bg-green-50 border-2 border-green-200 rounded-lg p-4">
-                <div className="space-y-2 text-sm text-gray-700">
+              <div className="bg-green-50 border border-green-200 rounded-lg p-3 sm:p-4">
+                <div className="space-y-1 sm:space-y-2 text-xs sm:text-sm text-gray-700">
                   <p className="flex justify-between">
                     <strong>CEP:</strong>
                     <span>{addressData.cep}</span>
@@ -1443,7 +1392,7 @@ export default function CheckoutPage() {
               
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 flex items-center gap-2">
                 <Clock className="w-5 h-5 text-blue-600 flex-shrink-0" />
-                <p className="text-sm text-blue-800 font-semibold">
+                <p className="text-xs text-blue-800 font-semibold">
                   Entrega em até 30 minutos!
                 </p>
               </div>
@@ -1599,7 +1548,9 @@ export default function CheckoutPage() {
                   </div>
                   <div className="flex items-center gap-2 mt-3 sm:mt-4 p-2 sm:p-3 bg-blue-50 border border-blue-200 rounded-lg">
                     <Clock className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600" />
-                    <p className="text-xs sm:text-sm text-blue-800 font-semibold">Entrega em até 30 minutos!</p>
+                    <p className="text-xs text-blue-800 font-semibold">
+                      Entrega em até 30 minutos!
+                    </p>
                   </div>
                 </div>
               </CardContent>
@@ -1727,21 +1678,31 @@ export default function CheckoutPage() {
                         ))}
                       </select>
                       <div className="mt-3 p-3 bg-green-50 border border-green-200 rounded-lg">
-                        <p className="text-xs text-green-800 leading-relaxed mb-2">
-                          <strong>💰 Forma de Pagamento: Você paga 50% agora via PIX e os outros 50% diretamente com o motoboy na entrega!</strong>
-                        </p>
                         <p className="text-xs text-green-700 leading-relaxed mb-2">
-                          💳 <strong>Ao receber, você escolhe como pagar os 50% restantes:</strong> Dinheiro, PIX ou Cartão (na maquininha do motoboy).
-                        </p>
-                        <p className="text-xs text-green-700 leading-relaxed mb-2">
-                          📞 <strong>Nosso motoboy irá ligar para confirmar a escolha do cliente, não se preocupe que não terá taxas, é bem prático e rápido.</strong>
+                          📞 <strong>Nosso motoboy irá ligar para confirmar seu pedido.</strong> Não se preocupe, é bem rápido e prático!
                         </p>
                         <p className="text-xs text-green-700 leading-relaxed">
-                          🚀 <strong>Ao gerar o PIX, o motoboy mais próximo já recebe uma notificação e já fica no aguardo.</strong> Quando pagamento é concluído ele já aceita seu pedido e informamos o seu número pra ele te ligar e confirmar o pedido.
+                          🚀 <strong>Ao gerar o PIX, o motoboy mais próximo já recebe uma notificação e fica no aguardo.</strong> Quando o pagamento é concluído, ele já aceita seu pedido e informamos seu número para ele te ligar e confirmar.
                         </p>
                         <p className="text-xs text-green-700 leading-relaxed">
-                          🏢 <strong>Temos Centrais de distribuição na maioria das cidades e bairros :)</strong> Estamos pertinho de vocês. Trabalhamos em parceria com a maioria das empresas fornecedoras de gás a nível nacional.
+                          🏢 <strong>Temos Centrais de distribuição na maioria das cidades e bairros :)</strong> Estamos pertinho de você. Trabalhamos em parceria com a maioria das empresas fornecedoras de gás a nível nacional.
                         </p>
+                      </div>
+                      
+                      {/* Aviso sobre Preço Promocional */}
+                      <div className="mt-3 p-3 bg-gradient-to-r from-orange-50 to-red-50 border-2 border-orange-300 rounded-lg">
+                        <div className="flex items-start gap-2">
+                          <span className="text-xl">🔥</span>
+                          <div className="flex-1">
+                            <h5 className="font-bold text-orange-800 text-sm mb-1">⚡ Preço Promocional - Estoque Limitado!</h5>
+                            <p className="text-xs text-gray-700 leading-relaxed mb-2">
+                              <strong>Aproveite agora!</strong> Estamos com estoque de lote anterior e conseguimos manter este preço especial. Quando o estoque acabar, os preços serão ajustados conforme a nova precificação estabelecida pelo governo (Lei nº 14.134/2021).
+                            </p>
+                            <p className="text-xs text-orange-700 leading-relaxed font-semibold">
+                              💰 Garanta já o seu com o melhor preço antes que acabe!
+                            </p>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   )}
@@ -1980,43 +1941,6 @@ export default function CheckoutPage() {
                     </span>
                   </div>
                   
-                  {/* Explicação do Pagamento Parcelado */}
-                  {requiresPartialPayment() && (
-                    <div className="border-t pt-3 mt-3 space-y-2">
-                      <div className="bg-gradient-to-r from-green-50 to-blue-50 border-2 border-green-300 rounded-lg p-3">
-                        <div className="flex items-start gap-2 mb-2">
-                          <span className="text-xl">💰</span>
-                          <div className="flex-1">
-                            <h4 className="font-bold text-green-800 text-sm mb-1">Facilidade de Pagamento!</h4>
-                            <p className="text-xs text-gray-700 leading-relaxed">
-                              Para sua comodidade, você paga apenas <strong className="text-green-600">50% agora via PIX</strong> para confirmar o pedido.
-                            </p>
-                          </div>
-                        </div>
-                        
-                        <div className="space-y-2 text-xs">
-                          <div className="flex justify-between items-center bg-white rounded p-2">
-                            <span className="text-gray-700">💳 Pagar agora (50%):</span>
-                            <span className="font-bold text-green-600 text-base">
-                              {formatPrice(getPaymentAmount())}
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center bg-white rounded p-2">
-                            <span className="text-gray-700">🏍️ Pagar na entrega (50%):</span>
-                            <span className="font-bold text-blue-600 text-base">
-                              {formatPrice(getRemainingAmount())}
-                            </span>
-                          </div>
-                        </div>
-                        
-                        <div className="mt-3 p-2 bg-blue-50 border border-blue-200 rounded">
-                          <p className="text-xs text-blue-800 leading-relaxed">
-                            <strong>📞 Como funciona:</strong> Após confirmar o pagamento de 50%, o motoboy irá ligar para confirmar seu endereço e tirar dúvidas. Os outros 50% você paga diretamente ao motoboy no momento da entrega.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  )}
                   <div className="border-t pt-3 mt-3">
                     <h4 className="font-semibold text-gray-800 mb-3 text-sm">Dados do Cliente</h4>
                     
@@ -2249,10 +2173,7 @@ export default function CheckoutPage() {
                                   }
                                   
                                   // 1. Reportar conversão Google Ads
-                                  if (!conversionReported) {
-                                    reportPurchaseConversion(updatedPixData.amount, updatedPixData.id.toString())
-                                    setConversionReported(true)
-                                  }
+                                  // Removido
                                   
                                   // 2. Enviar PAID para UTMify (ANTES de remover do localStorage)
                                   await sendToUtmify('paid')
@@ -2292,11 +2213,6 @@ export default function CheckoutPage() {
                       <p className="text-xs sm:text-sm text-blue-800">
                         <strong>Valor a pagar agora:</strong> {formatPrice(pixData.amount)}
                       </p>
-                      {requiresPartialPayment() && (
-                        <p className="text-xs sm:text-sm text-blue-800 mt-1">
-                          <strong>Valor restante (na entrega):</strong> {formatPrice(getRemainingAmount())}
-                        </p>
-                      )}
                       {pixData.pix?.expirationDate && (
                         <p className="text-xs sm:text-sm text-blue-800">
                           <strong>Válido até:</strong>{" "}
@@ -2339,13 +2255,6 @@ export default function CheckoutPage() {
                               <p className="text-xs sm:text-sm text-green-700 leading-relaxed mb-2">
                                 Agora só aguardar a ligação do nosso Motoboy ok? É rapidinho! Estamos com uma grande quantidade de pedidos mas leva de 2 a 5 minutos.
                               </p>
-                              {requiresPartialPayment() && (
-                                <div className="mt-2 p-2 bg-yellow-50 border border-yellow-300 rounded">
-                                  <p className="text-xs text-yellow-800 leading-relaxed">
-                                    <strong>💰 Lembrete:</strong> Você pagou {formatPrice(pixData.amount)} agora. O valor restante de <strong>{formatPrice(getRemainingAmount())}</strong> será pago ao motoboy no momento da entrega.
-                                  </p>
-                                </div>
-                              )}
                             </div>
                           </div>
                         </div>
@@ -2540,19 +2449,13 @@ export default function CheckoutPage() {
                     10% OFF
                   </div>
                 </div>
-                <div className="mt-2 pt-2 border-t border-white/20 space-y-1">
+                <div className="mt-2 pt-2 border-t border-white/20">
                   <p className="text-xs">
                     De <span className="line-through opacity-75">{formatCurrency(getTotalPrice())}</span> por <span className="font-bold text-base">{formatCurrency(getTotalPrice() - pixDiscount)}</span>
                   </p>
-                  <div className="bg-white/10 rounded-lg p-1.5">
-                    <p className="text-xs text-green-100 mb-0.5">💰 Pagamento Facilitado:</p>
-                    <p className="text-xs">
-                      <strong>50% agora:</strong> {formatCurrency((getTotalPrice() - pixDiscount) / 2)}
-                    </p>
-                    <p className="text-xs">
-                      <strong>50% na entrega:</strong> {formatCurrency((getTotalPrice() - pixDiscount) / 2)}
-                    </p>
-                  </div>
+                  <p className="text-xs text-green-100 mt-1">
+                    💰 Pagamento 100% via PIX - Rápido e seguro!
+                  </p>
                 </div>
               </button>
               
