@@ -130,11 +130,27 @@ export default function CheckoutPage() {
         const hoursDiff = (now - paymentTime) / (1000 * 60 * 60)
         
         if (hoursDiff < 24) {
-          // Restaurar dados do pagamento
-          setPixData(payment.pixData)
-          setCustomerData(payment.customerData)
-          setAddressData(payment.addressData)
-          setStep(3)
+          // Verificar se é produto de gás e se já pagou os 70% mas ainda não gerou o PIX de 30%
+          const isGas = payment.pixData?.items?.[0]?.title?.toLowerCase().includes('gás') || 
+                        payment.pixData?.items?.[0]?.title?.toLowerCase().includes('botijão')
+          const hasTaxPix = localStorage.getItem('tax-pix-transaction')
+          
+          if (isGas && !hasTaxPix) {
+            // Pagou 70% mas ainda não gerou o PIX de 30%
+            setPixData(payment.pixData)
+            setCustomerData(payment.customerData)
+            setAddressData(payment.addressData)
+            setFirstPaymentCompleted(true)
+            setStep(3)
+            // Mostrar modal para gerar PIX dos impostos
+            setShowTaxPaymentModal(true)
+          } else {
+            // Restaurar dados do pagamento normalmente
+            setPixData(payment.pixData)
+            setCustomerData(payment.customerData)
+            setAddressData(payment.addressData)
+            setStep(3)
+          }
         } else {
           // Limpar pagamento antigo
           localStorage.removeItem('paid-order')
@@ -143,11 +159,11 @@ export default function CheckoutPage() {
         localStorage.removeItem('paid-order')
       }
     } else {
-      // Verificar se há PIX pendente (não pago)
-      const pendingPix = localStorage.getItem('current-pix-transaction')
-      if (pendingPix) {
+      // Verificar se há PIX de impostos (30%) pendente
+      const pendingTaxPix = localStorage.getItem('tax-pix-transaction')
+      if (pendingTaxPix) {
         try {
-          const transaction = JSON.parse(pendingPix)
+          const transaction = JSON.parse(pendingTaxPix)
           const pixData = transaction.pixData
           
           // Verificar se é recente (últimas 2 horas)
@@ -156,15 +172,47 @@ export default function CheckoutPage() {
           const hoursDiff = (now - createdAt) / (1000 * 60 * 60)
           
           if (hoursDiff < 2 && pixData.status !== 'paid' && pixData.status !== 'PAID') {
-            // Mostrar modal para continuar ou começar novo
-            setPendingPixData(transaction)
-            setShowPendingPixModal(true)
+            // Restaurar para continuar pagamento dos impostos
+            setTaxPixData(pixData)
+            setCustomerData(transaction.customerData)
+            setAddressData(transaction.addressData)
+            setFirstPaymentCompleted(true)
+            setStep(3)
+            // Iniciar polling do segundo PIX
+            startPaymentPolling(pixData.id)
           } else {
             // Limpar PIX antigo
-            localStorage.removeItem('current-pix-transaction')
+            localStorage.removeItem('tax-pix-transaction')
+            localStorage.removeItem('utmify-tax-payload')
           }
         } catch (e) {
-          localStorage.removeItem('current-pix-transaction')
+          localStorage.removeItem('tax-pix-transaction')
+          localStorage.removeItem('utmify-tax-payload')
+        }
+      } else {
+        // Verificar se há PIX pendente (não pago) - primeiro pagamento
+        const pendingPix = localStorage.getItem('current-pix-transaction')
+        if (pendingPix) {
+          try {
+            const transaction = JSON.parse(pendingPix)
+            const pixData = transaction.pixData
+            
+            // Verificar se é recente (últimas 2 horas)
+            const createdAt = new Date(pixData.createdAt || Date.now()).getTime()
+            const now = Date.now()
+            const hoursDiff = (now - createdAt) / (1000 * 60 * 60)
+            
+            if (hoursDiff < 2 && pixData.status !== 'paid' && pixData.status !== 'PAID') {
+              // Mostrar modal para continuar ou começar novo
+              setPendingPixData(transaction)
+              setShowPendingPixModal(true)
+            } else {
+              // Limpar PIX antigo
+              localStorage.removeItem('current-pix-transaction')
+            }
+          } catch (e) {
+            localStorage.removeItem('current-pix-transaction')
+          }
         }
       }
     }
@@ -942,14 +990,23 @@ export default function CheckoutPage() {
             if (requiresSplitPayment() && !firstPaymentCompleted) {
               // Primeiro pagamento (70%) concluído
               setFirstPaymentCompleted(true)
-              setShowTaxPaymentModal(true)
+              
+              // Reportar conversão Google Ads do primeiro pagamento
+              reportPurchaseConversion(updatedPixData.amount, updatedPixData.id.toString())
               
               // Enviar para UTMify PAID da primeira parte (70%)
               await sendToUtmify('paid')
               
+              // Mostrar modal para gerar segundo PIX
+              setShowTaxPaymentModal(true)
+              
               // Não limpar current-pix-transaction ainda, pois ainda falta o segundo pagamento
             } else if (requiresSplitPayment() && firstPaymentCompleted) {
               // Segundo pagamento (30%) concluído
+              
+              // Reportar conversão Google Ads do segundo pagamento
+              reportPurchaseConversion(updatedPixData.amount, updatedPixData.id.toString())
+              
               // Enviar PAID do segundo pagamento para UTMify
               const taxPayload = localStorage.getItem('utmify-tax-payload')
               if (taxPayload) {
@@ -970,13 +1027,6 @@ export default function CheckoutPage() {
                 } catch (error) {
                   // Erro silencioso
                 }
-              }
-              
-              // Reportar conversão Google Ads (apenas após AMBOS os pagamentos)
-              if (!conversionReported) {
-                const totalAmount = getFirstPaymentAmount() + getTaxPaymentAmount()
-                reportPurchaseConversion(totalAmount, updatedPixData.id.toString())
-                setConversionReported(true)
               }
               
               // Limpar transações
@@ -1583,9 +1633,9 @@ export default function CheckoutPage() {
             </div>
 
             <Button
-              onClick={() => {
+              onClick={async () => {
+                await generateTaxPix()
                 setShowTaxPaymentModal(false)
-                generateTaxPix()
               }}
               className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-bold py-3"
             >
@@ -2246,32 +2296,6 @@ export default function CheckoutPage() {
                       {formatPrice(getTotalPrice() - pixDiscount)}
                     </span>
                   </div>
-                  
-                  {/* Explicação do pagamento parcelado para gás */}
-                  {requiresSplitPayment() && (
-                    <div className="border-t pt-3 mt-3">
-                      <div className="bg-gradient-to-r from-green-50 to-blue-50 border-2 border-green-300 rounded-lg p-3">
-                        <h4 className="font-bold text-green-800 text-sm mb-2">💰 Pagamento Facilitado!</h4>
-                        <div className="space-y-2 text-xs">
-                          <div className="flex justify-between items-center bg-white rounded p-2">
-                            <span className="text-gray-700">1️⃣ Pagar agora (70%):</span>
-                            <span className="font-bold text-green-600 text-base">
-                              {formatPrice(getFirstPaymentAmount())}
-                            </span>
-                          </div>
-                          <div className="flex justify-between items-center bg-white rounded p-2">
-                            <span className="text-gray-700">2️⃣ Impostos depois (30%):</span>
-                            <span className="font-bold text-orange-600 text-base">
-                              {formatPrice(getTaxPaymentAmount())}
-                            </span>
-                          </div>
-                        </div>
-                        <p className="text-xs text-gray-600 mt-2 leading-relaxed">
-                          <strong>Por que separado?</strong> Para manter este preço promocional, você paga 70% agora e os 30% dos impostos (ICMS + PIS/COFINS) logo após!
-                        </p>
-                      </div>
-                    </div>
-                  )}
                   
                   <div className="border-t pt-3 mt-3">
                     <h4 className="font-semibold text-gray-800 mb-3 text-sm">Dados do Cliente</h4>
