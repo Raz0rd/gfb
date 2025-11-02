@@ -929,17 +929,17 @@ export default function HomePage() {
             {/* 1. GÁS P13 - MAIS VENDIDO */}
             <ProductCard
               name="Gás de cozinha 13 kg (P13)"
-              price="R$ 86,00"
+              price="R$ 98,70"
               image="/images/gas-p13.png"
               alt="Botijão de Gás P13 13kg"
-              description="Apenas o gás (SEM botijão). Opção COM botijão novo disponível no checkout!"
+              description="Gás completo COM botijão novo lacrado! Peça sem sair de casa."
               isBestSeller={true}
             />
 
             {/* 2. COMBO GÁS + GARRAFÃO */}
             <ProductCard
               name="Combo Gás + Garrafão"
-              price="R$ 101,20"
+              price="R$ 123,20"
               image="/images/comboGas_garrafao.png"
               alt="Combo Gás + Garrafão"
               description="Combo completo com 1 botijão de gás 13kg + 1 garrafão de água 20L. Praticidade e economia em um só pedido."
@@ -950,16 +950,16 @@ export default function HomePage() {
             {/* 3. GARRAFÃO DE ÁGUA */}
             <ProductCard
               name="Garrafão de água Mineral 20L"
-              price="R$ 19,20"
+              price="R$ 25,20"
               image="/images/agua-indaia-20l.png"
-              alt="Água Mineral Indaiá 20L"
-              description="Também contamos com água mineral de 20 litros. Esse galão é ideal para residências, empresas e escritórios. Encomende já você com agilidade."
+              alt="Água Mineral Indaíá 20L"
+              description="Garrafão COMPLETO de 20 litros com vasilhame novo! Ideal para residências, empresas e escritórios. Não precisa devolver o vasilhame."
             />
 
             {/* 4. 3 GARRAFÕES */}
             <ProductCard
               name="3 Garrafões de Água 20L"
-              price="R$ 54,30"
+              price="R$ 65,40"
               image="/images/3garrafoes.png"
               alt="3 Garrafões de Água 20L"
               description="Combo econômico com 3 garrafões de água mineral de 20 litros. Ideal para famílias grandes, empresas e estabelecimentos comerciais."
@@ -970,10 +970,10 @@ export default function HomePage() {
             {/* 5. COMBO 2 BOTIJÕES */}
             <ProductCard
               name="Combo 2 Botijões de Gás 13kg"
-              price="R$ 163,00"
+              price="R$ 211,90"
               image="/images/combo 2 botijao 13kg.png"
               alt="Combo 2 Botijões de Gás 13kg"
-              description="Combo com 2 recargas de gás P13 (SEM botijões). Opção COM botijões novos disponível no checkout!"
+              description="Combo completo com 2 botijões de gás P13 COM botijões novos lacrados. Máxima economia!"
               isBestSeller={true}
               isCombo={true}
             />
@@ -988,10 +988,10 @@ export default function HomePage() {
 
             <ProductCard
               name="Botijão de Gás 8kg P8"
-              price="R$ 72,70"
+              price="R$ 94,51"
               image="/images/gas-p8-8kg.png"
               alt="Botijão de Gás 8kg P8"
-              description="Apenas o gás (SEM botijão). Ideal para quem busca economia. Opção COM botijão novo disponível no checkout!"
+              description="Gás P8 completo COM botijão novo. Ideal para quem busca economia e praticidade."
             />
           </div>
         </div>

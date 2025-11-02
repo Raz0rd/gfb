@@ -17,6 +17,11 @@ function cleanPhone(phone: string): string {
 export async function POST(request: Request) {
   try {
     const body = await request.json()
+    
+    // Obter host para construir URL do webhook
+    const host = request.headers.get('host') || 'localhost:3000'
+    const protocol = host.includes('localhost') ? 'http' : 'https'
+    const webhookUrl = `${protocol}://${host}/api/webhook/ezzpag`
 
     // Preparar payload para Ezzpag
     const ezzpagPayload = {
@@ -48,20 +53,48 @@ export async function POST(request: Request) {
         quantity: item.quantity || 1
       })),
       amount: body.amount,
-      paymentMethod: 'pix'
+      paymentMethod: 'pix',
+      postbackUrl: webhookUrl
     }
 
     console.log('📤 [Ezzpag] Criando transação PIX...')
 
-    const response = await fetch(`${EZZPAG_BASE_URL}/transactions`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Basic ${EZZPAG_AUTH_TOKEN}`,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
-      },
-      body: JSON.stringify(ezzpagPayload),
-    })
+    // Tentar até 3 vezes em caso de erro 403
+    let response: Response | null = null
+    let attempts = 0
+    const maxAttempts = 3
+    
+    while (attempts < maxAttempts) {
+      attempts++
+      
+      response = await fetch(`${EZZPAG_BASE_URL}/transactions`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Basic ${EZZPAG_AUTH_TOKEN}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify(ezzpagPayload),
+      })
+      
+      // Se não for 403, sair do loop
+      if (response.status !== 403) {
+        break
+      }
+      
+      // Se for 403 e não for a última tentativa, aguardar 2 segundos
+      if (attempts < maxAttempts) {
+        console.log(`⚠️ [Ezzpag] Erro 403, tentativa ${attempts}/${maxAttempts}. Aguardando 2s...`)
+        await new Promise(resolve => setTimeout(resolve, 2000))
+      }
+    }
+
+    if (!response) {
+      return NextResponse.json(
+        { error: 'Erro ao conectar com Ezzpag após 3 tentativas' },
+        { status: 503 }
+      )
+    }
 
     if (!response.ok) {
       const errorText = await response.text()

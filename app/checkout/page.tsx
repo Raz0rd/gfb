@@ -147,16 +147,16 @@ export default function CheckoutPage() {
 
   const productPrices: { [key: string]: number } = {
     "TESTE - Produto R$ 5": 500, // R$ 5,00 em centavos - PRODUTO DE TESTE
-    "Gás de cozinha 13 kg (P13)": 8600, // R$ 86,00 em centavos (SEM botijão)
-    "Gás de Cozinha 13kg": 8600, // R$ 86,00 em centavos (compatibilidade)
+    "Gás de cozinha 13 kg (P13)": 9870, // R$ 98,70 em centavos (COM botijão)
+    "Gás de Cozinha 13kg": 9870, // R$ 98,70 em centavos (compatibilidade)
     "Água Mineral Indaiá 20L": 1283, // R$ 12,83 em centavos
-    "Garrafão de água Mineral 20L": 1920, // R$ 19,20 em centavos (COM vasilhame)
+    "Garrafão de água Mineral 20L": 2520, // R$ 25,20 em centavos (COM vasilhame completo)
     "Água Mineral Serragrande 20L": 1283, // R$ 12,83 em centavos
-    "Botijão de Gás 8kg P8": 7270, // R$ 72,70 em centavos (SEM botijão)
-    "Botijão de Gás 8kg": 7270, // R$ 72,70 em centavos (compatibilidade)
-    "3 Garrafões de Água 20L": 5430, // R$ 54,30 em centavos (COM vasilhames)
-    "Combo 2 Botijões de Gás 13kg": 16300, // R$ 163,00 em centavos (SEM botijões)
-    "Combo Gás + Garrafão": 10120, // R$ 101,20 em centavos
+    "Botijão de Gás 8kg P8": 9451, // R$ 94,51 em centavos (COM botijão)
+    "Botijão de Gás 8kg": 9451, // R$ 94,51 em centavos (compatibilidade)
+    "3 Garrafões de Água 20L": 6540, // R$ 65,40 em centavos (COM vasilhames)
+    "Combo 2 Botijões de Gás 13kg": 21190, // R$ 211,90 em centavos (COM botijões)
+    "Combo Gás + Garrafão": 12320, // R$ 123,20 em centavos
   }
 
   const [addressData, setAddressData] = useState<AddressData | null>(null)
@@ -214,8 +214,6 @@ export default function CheckoutPage() {
   const [showAddressModal, setShowAddressModal] = useState(false)
   const [searchingDriver, setSearchingDriver] = useState(false)
   const [driverETA, setDriverETA] = useState<string | null>(null)
-  const [showBotijaoModal, setShowBotijaoModal] = useState(false)
-  const [comBotijao, setComBotijao] = useState(false)
 
   // Marcas de água disponíveis
   const waterBrands = [
@@ -404,25 +402,15 @@ export default function CheckoutPage() {
   const handleCustomerDataSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (customerData.name && customerData.phone && customerData.number) {
-      // Se for produto de gás, mostrar modal de escolha de botijão primeiro
-      if (isGasProduct()) {
-        setShowBotijaoModal(true)
-      } else {
-        proceedToPayment()
-      }
+      setStep(3)
+      // Calcular desconto de 10% para mostrar no modal
+      const discount = Math.round(getTotalPrice() * 0.10)
+      setPixDiscount(discount)
+      // Mostrar modal de desconto PIX
+      setShowPixDiscountModal(true)
+      // Iniciar busca de motoboy
+      startDriverSearch()
     }
-  }
-  
-  // Função para prosseguir para pagamento após escolha de botijão
-  const proceedToPayment = () => {
-    setStep(3)
-    // Calcular desconto de 10% para mostrar no modal
-    const discount = Math.round(getTotalPrice() * 0.10)
-    setPixDiscount(discount)
-    // Mostrar modal de desconto PIX
-    setShowPixDiscountModal(true)
-    // Iniciar busca de motoboy
-    startDriverSearch()
   }
   
   // Função para simular busca de motoboy
@@ -654,15 +642,9 @@ export default function CheckoutPage() {
            productName.toLowerCase().includes("botijões")
   }
 
-  // Calcular preço total incluindo kit mangueira e botijão
+  // Calcular preço total incluindo kit mangueira
   const getTotalPrice = () => {
-    let basePrice = productPrices[productName] || 1000
-    
-    // Se produto de gás e escolheu COM botijão, adicionar 30%
-    if (isGasProduct() && comBotijao) {
-      basePrice = Math.round(basePrice * 1.30)
-    }
-    
+    const basePrice = productPrices[productName] || 1000
     const kitPrice = kitMangueira ? 930 : 0 // R$ 9,30 em centavos
     return basePrice + kitPrice
   }
@@ -1324,76 +1306,6 @@ export default function CheckoutPage() {
               </div>
             </div>
           )}
-        </DialogContent>
-      </Dialog>
-
-      {/* Modal de Escolha de Botijão */}
-      <Dialog open={showBotijaoModal} onOpenChange={setShowBotijaoModal}>
-        <DialogContent className="sm:max-w-lg">
-          <DialogHeader>
-            <DialogTitle className="text-center text-xl font-bold text-gray-800">
-              🔥 Escolha sua Opção
-            </DialogTitle>
-          </DialogHeader>
-          
-          <div className="space-y-4">
-            <p className="text-center text-gray-600">
-              Você deseja o gás <strong>COM</strong> ou <strong>SEM</strong> o botijão?
-            </p>
-            
-            {/* Opção SEM Botijão */}
-            <button
-              onClick={() => {
-                setComBotijao(false)
-                setShowBotijaoModal(false)
-                proceedToPayment()
-              }}
-              className="w-full p-4 border-2 border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all"
-            >
-              <div className="flex items-center justify-between">
-                <div className="text-left">
-                  <p className="font-bold text-lg text-gray-800">SEM Botijão</p>
-                  <p className="text-sm text-gray-600">Apenas o gás (você já tem o botijão)</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-2xl font-bold text-blue-600">
-                    {formatPrice(productPrices[productName] || 0)}
-                  </p>
-                </div>
-              </div>
-            </button>
-            
-            {/* Opção COM Botijão */}
-            <button
-              onClick={() => {
-                setComBotijao(true)
-                setShowBotijaoModal(false)
-                proceedToPayment()
-              }}
-              className="w-full p-4 border-2 border-green-500 bg-green-50 rounded-lg hover:bg-green-100 transition-all relative"
-            >
-              <div className="absolute -top-3 right-4 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full">
-                🔥 BLACK FRIDAY
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="text-left">
-                  <p className="font-bold text-lg text-gray-800">COM Botijão Novo</p>
-                  <p className="text-sm text-gray-600">Gás + Botijão lacrado (+30%)</p>
-                </div>
-                <div className="text-right">
-                  <p className="text-2xl font-bold text-green-600">
-                    {formatPrice(Math.round((productPrices[productName] || 0) * 1.30))}
-                  </p>
-                </div>
-              </div>
-            </button>
-            
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-center">
-              <p className="text-sm text-yellow-800">
-                💡 <strong>Dica:</strong> Botijão novo lacrado com garantia de qualidade!
-              </p>
-            </div>
-          </div>
         </DialogContent>
       </Dialog>
 
