@@ -932,7 +932,7 @@ export default function HomePage() {
               price="R$ 86,00"
               image="/images/gas-p13.png"
               alt="Botijão de Gás P13 13kg"
-              description="Peça seu botijão sem sair de casa!"
+              description="Apenas o gás (SEM botijão). Opção COM botijão novo disponível no checkout!"
               isBestSeller={true}
             />
 
@@ -973,7 +973,7 @@ export default function HomePage() {
               price="R$ 163,00"
               image="/images/combo 2 botijao 13kg.png"
               alt="Combo 2 Botijões de Gás 13kg"
-              description="Combo promocional com 2 botijões de gás P13. Economia garantida para sua casa com desconto especial na compra em conjunto."
+              description="Combo com 2 recargas de gás P13 (SEM botijões). Opção COM botijões novos disponível no checkout!"
               isBestSeller={true}
               isCombo={true}
             />
@@ -991,7 +991,7 @@ export default function HomePage() {
               price="R$ 72,70"
               image="/images/gas-p8-8kg.png"
               alt="Botijão de Gás 8kg P8"
-              description="O botijão de gás P8 tem capacidade para 8kg de GLP e sua aparência é a mesma do P13, porém um pouco mais estreito. Atende aos consumidores que buscam um produto mais barato e não possuem tanta demanda de gás em suas casas. Sendo uma excelente opção como botijão reserva."
+              description="Apenas o gás (SEM botijão). Ideal para quem busca economia. Opção COM botijão novo disponível no checkout!"
             />
           </div>
         </div>

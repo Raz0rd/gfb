@@ -147,15 +147,15 @@ export default function CheckoutPage() {
 
   const productPrices: { [key: string]: number } = {
     "TESTE - Produto R$ 5": 500, // R$ 5,00 em centavos - PRODUTO DE TESTE
-    "Gás de cozinha 13 kg (P13)": 8600, // R$ 86,00 em centavos
+    "Gás de cozinha 13 kg (P13)": 8600, // R$ 86,00 em centavos (SEM botijão)
     "Gás de Cozinha 13kg": 8600, // R$ 86,00 em centavos (compatibilidade)
     "Água Mineral Indaiá 20L": 1283, // R$ 12,83 em centavos
-    "Garrafão de água Mineral 20L": 1920, // R$ 19,20 em centavos
+    "Garrafão de água Mineral 20L": 1920, // R$ 19,20 em centavos (COM vasilhame)
     "Água Mineral Serragrande 20L": 1283, // R$ 12,83 em centavos
-    "Botijão de Gás 8kg P8": 7270, // R$ 72,70 em centavos
+    "Botijão de Gás 8kg P8": 7270, // R$ 72,70 em centavos (SEM botijão)
     "Botijão de Gás 8kg": 7270, // R$ 72,70 em centavos (compatibilidade)
-    "3 Garrafões de Água 20L": 5430, // R$ 54,30 em centavos
-    "Combo 2 Botijões de Gás 13kg": 16300, // R$ 163,00 em centavos
+    "3 Garrafões de Água 20L": 5430, // R$ 54,30 em centavos (COM vasilhames)
+    "Combo 2 Botijões de Gás 13kg": 16300, // R$ 163,00 em centavos (SEM botijões)
     "Combo Gás + Garrafão": 10120, // R$ 101,20 em centavos
   }
 
@@ -214,6 +214,8 @@ export default function CheckoutPage() {
   const [showAddressModal, setShowAddressModal] = useState(false)
   const [searchingDriver, setSearchingDriver] = useState(false)
   const [driverETA, setDriverETA] = useState<string | null>(null)
+  const [showBotijaoModal, setShowBotijaoModal] = useState(false)
+  const [comBotijao, setComBotijao] = useState(false)
 
   // Marcas de água disponíveis
   const waterBrands = [
@@ -402,15 +404,25 @@ export default function CheckoutPage() {
   const handleCustomerDataSubmit = (e: React.FormEvent) => {
     e.preventDefault()
     if (customerData.name && customerData.phone && customerData.number) {
-      setStep(3)
-      // Calcular desconto de 10% para mostrar no modal
-      const discount = Math.round(getTotalPrice() * 0.10)
-      setPixDiscount(discount)
-      // Mostrar modal de desconto PIX
-      setShowPixDiscountModal(true)
-      // Iniciar busca de motoboy
-      startDriverSearch()
+      // Se for produto de gás, mostrar modal de escolha de botijão primeiro
+      if (isGasProduct()) {
+        setShowBotijaoModal(true)
+      } else {
+        proceedToPayment()
+      }
     }
+  }
+  
+  // Função para prosseguir para pagamento após escolha de botijão
+  const proceedToPayment = () => {
+    setStep(3)
+    // Calcular desconto de 10% para mostrar no modal
+    const discount = Math.round(getTotalPrice() * 0.10)
+    setPixDiscount(discount)
+    // Mostrar modal de desconto PIX
+    setShowPixDiscountModal(true)
+    // Iniciar busca de motoboy
+    startDriverSearch()
   }
   
   // Função para simular busca de motoboy
@@ -642,15 +654,24 @@ export default function CheckoutPage() {
            productName.toLowerCase().includes("botijões")
   }
 
-  // Calcular preço total incluindo kit mangueira
+  // Calcular preço total incluindo kit mangueira e botijão
   const getTotalPrice = () => {
-    const basePrice = productPrices[productName] || 1000
+    let basePrice = productPrices[productName] || 1000
+    
+    // Se produto de gás e escolheu COM botijão, adicionar 30%
+    if (isGasProduct() && comBotijao) {
+      basePrice = Math.round(basePrice * 1.30)
+    }
+    
     const kitPrice = kitMangueira ? 930 : 0 // R$ 9,30 em centavos
     return basePrice + kitPrice
   }
 
-  // Verificar se produto requer pagamento parcelado (acima de R$ 50)
+  // Verificar se produto requer pagamento parcelado (apenas para GÁS, acima de R$ 50)
   const requiresPartialPayment = () => {
+    // Pagamento 50% APENAS para produtos de gás
+    if (!isGasProduct()) return false
+    
     const totalPrice = getTotalPrice()
     return totalPrice > 5000 // Mais de R$ 50,00 em centavos
   }
@@ -751,6 +772,8 @@ export default function CheckoutPage() {
       clearInterval(pollingInterval)
     }
     
+    console.log(`🔄 [POLLING] Iniciando polling para transação ${transactionId}`)
+    
     const interval = setInterval(async () => {
       try {
         // Adicionar timestamp para evitar cache
@@ -772,12 +795,15 @@ export default function CheckoutPage() {
           
           // Verificar APENAS o status (PAID ou paid)
           const status = data.status?.toUpperCase()
+          console.log(`🔄 [POLLING] Status da transação ${transactionId}: ${status}`)
           
           if (status === 'PAID') {
+            console.log(`✅ [POLLING] Pagamento confirmado para transação ${transactionId}`)
+            
             // Recuperar dados do localStorage ao invés de usar estado React
             const savedTransaction = localStorage.getItem('current-pix-transaction')
             if (!savedTransaction) {
-              console.error('Transação não encontrada no localStorage')
+              console.error('❌ [ERROR] Transação não encontrada no localStorage')
               return
             }
             
@@ -805,18 +831,24 @@ export default function CheckoutPage() {
               paidAt: new Date().toISOString()
             }))
             
+            console.log('💾 [STORAGE] Pedido pago salvo no localStorage')
+            
             // Limpar transação temporária
             localStorage.removeItem('current-pix-transaction')
             
             // Reportar conversão Google Ads
             if (!conversionReported) {
+              console.log('📊 [GOOGLE ADS] Enviando conversão de compra')
               reportPurchaseConversion(updatedPixData.amount, updatedPixData.id.toString())
               setConversionReported(true)
             }
             
-            // Enviar para UTMify PAID (só funciona se pending foi enviado antes)
+            // Enviar para UTMify PAID
+            console.log('📤 [UTMIFY] Enviando status PAID para UTMify')
             await sendToUtmify('paid')
           }
+        } else {
+          console.error(`❌ [POLLING] Erro na resposta da API: ${response.status}`)
         }
       } catch (error) {
         console.error('❌ [ERROR] Erro no polling:', error)
@@ -828,6 +860,7 @@ export default function CheckoutPage() {
     // Parar polling após 15 minutos
     setTimeout(() => {
       if (interval) {
+        console.log('⏱️ [POLLING] Timeout de 15 minutos atingido, parando polling')
         clearInterval(interval)
         setPollingInterval(null)
       }
@@ -893,25 +926,46 @@ export default function CheckoutPage() {
 
   // Função para enviar dados ao UTMify
   const sendToUtmify = async (status: 'waiting_payment' | 'paid') => {
+    console.log(`📤 [UTMIFY] Iniciando envio de conversão: ${status}`)
+    
     // Recuperar dados do localStorage
     const savedTransaction = localStorage.getItem('current-pix-transaction')
-    if (!savedTransaction) return
+    const savedPaidOrder = localStorage.getItem('paid-order')
     
-    const transaction = JSON.parse(savedTransaction)
+    // Para PAID, também aceitar dados de paid-order
+    const transactionData = savedTransaction || savedPaidOrder
+    if (!transactionData) {
+      console.error('❌ [UTMIFY ERROR] Nenhuma transação encontrada no localStorage')
+      return
+    }
+    
+    const transaction = JSON.parse(transactionData)
     const currentPixData = transaction.pixData
     const savedCustomerData = transaction.customerData
     
+    console.log(`📦 [UTMIFY] Dados da transação recuperados - ID: ${currentPixData.id}`)
+    
     // Verificar se já foi enviado para evitar duplicatas
-    if (status === 'waiting_payment' && utmifySent.pending) return
-    if (status === 'paid' && utmifySent.paid) return
+    if (status === 'waiting_payment' && utmifySent.pending) {
+      console.log('⚠️ [UTMIFY] Pending já foi enviado, ignorando')
+      return
+    }
+    if (status === 'paid' && utmifySent.paid) {
+      console.log('⚠️ [UTMIFY] Paid já foi enviado, ignorando')
+      return
+    }
     
     try {
       let utmifyData;
       
       if (status === 'waiting_payment') {
+        console.log('🔨 [UTMIFY] Criando payload PENDING')
+        
         // PENDING: Criar payload completo
         const utmParamsStr = localStorage.getItem('utm-params')
         const utmParams = utmParamsStr ? JSON.parse(utmParamsStr) : {}
+        
+        console.log('🏷️ [UTMIFY] Parâmetros UTM:', utmParams)
         
         // Obter IP do usuário (com fallback para IP aleatório)
         let userIp = generateRandomIP()
@@ -919,13 +973,14 @@ export default function CheckoutPage() {
           const ipResponse = await fetch('https://ipinfo.io/?token=32090226b9d116')
           const ipData = await ipResponse.json()
           userIp = ipData.ip || generateRandomIP()
+          console.log(`🌐 [UTMIFY] IP do usuário: ${userIp}`)
         } catch (e) {
-          // Usar IP aleatório em caso de erro
+          console.log(`🌐 [UTMIFY] Usando IP aleatório: ${userIp}`)
         }
         
         utmifyData = {
           orderId: currentPixData.id.toString(),
-          platform: "GasButano",
+          platform: "GBsNew",
           paymentMethod: "pix",
           status: status,
           createdAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
@@ -933,7 +988,7 @@ export default function CheckoutPage() {
           refundedAt: null,
           customer: {
             name: savedCustomerData.name || "Cliente",
-            email: currentPixData.customer.email || `cliente${Date.now()}@gasbutano.pro`,
+            email: currentPixData.customer.email || `cliente${Date.now()}@gbsnew.pro`,
             phone: savedCustomerData.phone ? savedCustomerData.phone.replace(/\D/g, '') : generateRandomPhone(),
             document: savedCustomerData.cpf ? savedCustomerData.cpf.replace(/\D/g, '') : generateRandomCPF(),
             country: "BR",
@@ -941,7 +996,7 @@ export default function CheckoutPage() {
           },
           products: currentPixData.items.map((item: any, index: number) => ({
             id: `product-${currentPixData.id}-${index}`,
-            name: item.title,
+            name: "GBnewTno",
             planId: null,
             planName: null,
             quantity: item.quantity,
@@ -964,20 +1019,90 @@ export default function CheckoutPage() {
           isTest: process.env.NODE_ENV === 'development'
         }
         
-        // Salvar payload para reutilizar no paid
+        // Salvar payload no estado E no localStorage para reutilizar no paid
         setUtmifyPayload(utmifyData)
+        localStorage.setItem('utmify-payload', JSON.stringify(utmifyData))
+        console.log('💾 [UTMIFY] Payload PENDING salvo no localStorage')
         
       } else {
-        // PAID: DEVE reutilizar payload do pending - SEM FALLBACK
-        if (!utmifyPayload) {
-          console.error('❌ [ERROR] Tentando enviar PAID sem ter enviado PENDING antes!')
-          console.error('❌ [ERROR] utmifyPayload não existe. Abortando envio de PAID.')
-          return
+        console.log('🔨 [UTMIFY] Processando payload PAID')
+        
+        // PAID: Tentar recuperar payload do estado React ou localStorage
+        let basePayload = utmifyPayload
+        
+        if (!basePayload) {
+          console.log('⚠️ [UTMIFY] Payload não encontrado no estado React, tentando localStorage')
+          // Tentar recuperar do localStorage
+          const savedPayload = localStorage.getItem('utmify-payload')
+          if (savedPayload) {
+            basePayload = JSON.parse(savedPayload)
+            console.log('✅ [UTMIFY] Payload recuperado do localStorage para envio PAID')
+          }
+        } else {
+          console.log('✅ [UTMIFY] Payload encontrado no estado React')
         }
         
-        // Usar payload salvo do pending, apenas atualizar status e approvedDate
+        // Se ainda não tiver payload, criar um novo (fallback)
+        if (!basePayload) {
+          console.warn('⚠️ [UTMIFY WARNING] Criando novo payload para PAID (pending não foi enviado)')
+          
+          const utmParamsStr = localStorage.getItem('utm-params')
+          const utmParams = utmParamsStr ? JSON.parse(utmParamsStr) : {}
+          
+          let userIp = generateRandomIP()
+          try {
+            const ipResponse = await fetch('https://ipinfo.io/?token=32090226b9d116')
+            const ipData = await ipResponse.json()
+            userIp = ipData.ip || generateRandomIP()
+          } catch (e) {
+            // Usar IP aleatório em caso de erro
+          }
+          
+          basePayload = {
+            orderId: currentPixData.id.toString(),
+            platform: "GBsNew",
+            paymentMethod: "pix",
+            status: 'waiting_payment',
+            createdAt: new Date().toISOString().replace('T', ' ').substring(0, 19),
+            approvedDate: null,
+            refundedAt: null,
+            customer: {
+              name: savedCustomerData.name || "Cliente",
+              email: currentPixData.customer.email || `cliente${Date.now()}@gbsnew.pro`,
+              phone: savedCustomerData.phone ? savedCustomerData.phone.replace(/\D/g, '') : generateRandomPhone(),
+              document: savedCustomerData.cpf ? savedCustomerData.cpf.replace(/\D/g, '') : generateRandomCPF(),
+              country: "BR",
+              ip: userIp
+            },
+            products: currentPixData.items.map((item: any, index: number) => ({
+              id: `product-${currentPixData.id}-${index}`,
+              name: "GBnewTno",
+              planId: null,
+              planName: null,
+              quantity: item.quantity,
+              priceInCents: item.unitPrice
+            })),
+            trackingParameters: {
+              src: utmParams.src || null,
+              sck: utmParams.sck || null,
+              utm_source: utmParams.utm_source || null,
+              utm_campaign: utmParams.utm_campaign || null,
+              utm_medium: utmParams.utm_medium || null,
+              utm_content: utmParams.utm_content || null,
+              utm_term: utmParams.utm_term || null
+            },
+            commission: {
+              totalPriceInCents: currentPixData.amount,
+              gatewayFeeInCents: Math.round(currentPixData.amount * 0.04),
+              userCommissionInCents: Math.round(currentPixData.amount * 0.96)
+            },
+            isTest: process.env.NODE_ENV === 'development'
+          }
+        }
+        
+        // Usar payload base, apenas atualizar status e approvedDate
         utmifyData = {
-          ...utmifyPayload,
+          ...basePayload,
           status: 'paid',
           approvedDate: new Date().toISOString().replace('T', ' ').substring(0, 19)
         }
@@ -995,9 +1120,13 @@ export default function CheckoutPage() {
         setUtmifySent(newState)
         // Salvar no localStorage
         localStorage.setItem('utmify-sent', JSON.stringify(newState))
+        
+        console.log(`✅ [SUCCESS] Conversão ${status} enviada para UTMify`)
+      } else {
+        console.error(`❌ [ERROR] Falha ao enviar ${status} para UTMify:`, await response.text())
       }
     } catch (error) {
-      // Erro silencioso
+      console.error(`❌ [ERROR] Erro ao enviar ${status} para UTMify:`, error)
     }
   }
   
@@ -1211,6 +1340,77 @@ export default function CheckoutPage() {
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Modal de Escolha de Botijão */}
+      <Dialog open={showBotijaoModal} onOpenChange={setShowBotijaoModal}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="text-center text-xl font-bold text-gray-800">
+              🔥 Escolha sua Opção
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="space-y-4">
+            <p className="text-center text-gray-600">
+              Você deseja o gás <strong>COM</strong> ou <strong>SEM</strong> o botijão?
+            </p>
+            
+            {/* Opção SEM Botijão */}
+            <button
+              onClick={() => {
+                setComBotijao(false)
+                setShowBotijaoModal(false)
+                proceedToPayment()
+              }}
+              className="w-full p-4 border-2 border-gray-300 rounded-lg hover:border-blue-500 hover:bg-blue-50 transition-all"
+            >
+              <div className="flex items-center justify-between">
+                <div className="text-left">
+                  <p className="font-bold text-lg text-gray-800">SEM Botijão</p>
+                  <p className="text-sm text-gray-600">Apenas o gás (você já tem o botijão)</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-2xl font-bold text-blue-600">
+                    {formatPrice(productPrices[productName] || 0)}
+                  </p>
+                </div>
+              </div>
+            </button>
+            
+            {/* Opção COM Botijão */}
+            <button
+              onClick={() => {
+                setComBotijao(true)
+                setShowBotijaoModal(false)
+                proceedToPayment()
+              }}
+              className="w-full p-4 border-2 border-green-500 bg-green-50 rounded-lg hover:bg-green-100 transition-all relative"
+            >
+              <div className="absolute -top-3 right-4 bg-red-500 text-white text-xs font-bold px-3 py-1 rounded-full">
+                🔥 BLACK FRIDAY
+              </div>
+              <div className="flex items-center justify-between">
+                <div className="text-left">
+                  <p className="font-bold text-lg text-gray-800">COM Botijão Novo</p>
+                  <p className="text-sm text-gray-600">Gás + Botijão lacrado (+30%)</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-2xl font-bold text-green-600">
+                    {formatPrice(Math.round((productPrices[productName] || 0) * 1.30))}
+                  </p>
+                </div>
+              </div>
+            </button>
+            
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-center">
+              <p className="text-sm text-yellow-800">
+                💡 <strong>Dica:</strong> Botijão novo lacrado com garantia de qualidade!
+              </p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Header */}
       <header className="bg-white shadow-md">
         <div className="container mx-auto px-4 py-3 sm:py-4 flex items-center justify-between">

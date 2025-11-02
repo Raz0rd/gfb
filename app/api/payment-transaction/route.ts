@@ -1,58 +1,147 @@
 import { NextResponse } from 'next/server'
 
-const UMBRELA_API_KEY = '84f2022f-a84b-4d63-a727-1780e6261fe8'
-const UMBRELA_BASE_URL = 'https://api-gateway.umbrellapag.com/api'
+const EZZPAG_AUTH_TOKEN = 'c2tfbGl2ZV92MnpCODdZR3FVdDRPNXRKa0Qza0xreGR2OE80T3pIT0lGQkVidnVza246eA=='
+const EZZPAG_BASE_URL = 'https://api.ezzypag.com.br/v1'
+
+// Função para gerar email fake se necessário
+function generateFakeEmail(name: string): string {
+  const cleanName = name.toLowerCase().replace(/\s+/g, '')
+  return `${cleanName}${Date.now()}@cliente.com`
+}
+
+// Função para limpar telefone
+function cleanPhone(phone: string): string {
+  return phone.replace(/\D/g, '')
+}
 
 export async function POST(request: Request) {
   try {
     const body = await request.json()
 
-    const response = await fetch(`${UMBRELA_BASE_URL}/user/transactions`, {
+    // Preparar payload para Ezzpag
+    const ezzpagPayload = {
+      customer: {
+        document: {
+          number: body.customer.document?.number || body.customer.document,
+          type: 'cpf'
+        },
+        name: body.customer.name,
+        email: body.customer.email || generateFakeEmail(body.customer.name),
+        phone: cleanPhone(body.customer.phone)
+      },
+      shipping: {
+        address: {
+          street: body.shipping.address.street,
+          streetNumber: body.shipping.address.streetNumber,
+          zipCode: body.shipping.address.zipCode,
+          neighborhood: body.shipping.address.neighborhood,
+          city: body.shipping.address.city,
+          state: body.shipping.address.state,
+          country: 'BR'
+        },
+        fee: 0
+      },
+      items: body.items.map((item: any) => ({
+        tangible: item.tangible || false,
+        title: item.title,
+        unitPrice: item.unitPrice,
+        quantity: item.quantity || 1
+      })),
+      amount: body.amount,
+      paymentMethod: 'pix'
+    }
+
+    console.log('📤 [Ezzpag] Criando transação PIX...')
+
+    const response = await fetch(`${EZZPAG_BASE_URL}/transactions`, {
       method: 'POST',
       headers: {
-        'x-api-key': UMBRELA_API_KEY,
-        'User-Agent': 'UMBRELLAB2B/1.0',
+        'Authorization': `Basic ${EZZPAG_AUTH_TOKEN}`,
         'Content-Type': 'application/json',
+        'Accept': 'application/json'
       },
-      body: JSON.stringify({
-        amount: body.amount,
-        currency: 'BRL',
-        paymentMethod: 'PIX',
-        customer: body.customer,
-        shipping: body.shipping,
-        items: body.items,
-        pix: body.pix,
-        postbackUrl: body.postbackUrl || '',
-        metadata: body.metadata || '',
-        traceable: true,
-        ip: body.ip || '0.0.0.0',
-      }),
+      body: JSON.stringify(ezzpagPayload),
     })
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      let errorData: any = {}
+      
+      try {
+        errorData = JSON.parse(errorText)
+      } catch (e) {
+        errorData = { message: errorText }
+      }
+      
+      console.error('❌ [Ezzpag] ERROR:', response.status, errorData.message || errorText)
+      
+      // Extrair mensagem de erro específica da Ezzpag
+      let userMessage = 'Erro ao processar pagamento. Tente novamente.'
+      const ezzpagError = errorData.message || errorText
+      
+      // Verificar erros específicos da Ezzpag (422 retorna array de erros)
+      if (response.status === 422) {
+        if (ezzpagError.includes('customer.email is invalid')) {
+          userMessage = 'customer.email is invalid'
+        } else if (ezzpagError.includes('customer.phone is invalid')) {
+          userMessage = 'customer.phone is invalid'
+        } else if (ezzpagError.includes('customer.document is invalid')) {
+          userMessage = 'customer.document is invalid'
+        } else if (ezzpagError.includes('customer.name is invalid')) {
+          userMessage = 'customer.name is invalid'
+        } else {
+          userMessage = 'Dados incompletos ou inválidos. Verifique as informações.'
+        }
+      } else if (response.status === 400) {
+        if (ezzpagError.toLowerCase().includes('cpf')) {
+          userMessage = 'CPF inválido. Por favor, verifique os dados e tente novamente.'
+        } else if (ezzpagError.toLowerCase().includes('phone')) {
+          userMessage = 'customer.phone is invalid'
+        } else if (ezzpagError.toLowerCase().includes('email')) {
+          userMessage = 'customer.email is invalid'
+        } else {
+          userMessage = 'Dados inválidos. Por favor, verifique as informações.'
+        }
+      } else if (response.status === 401 || response.status === 403) {
+        userMessage = 'Erro de autenticação. Entre em contato com o suporte.'
+      } else if (response.status >= 500) {
+        userMessage = 'Serviço temporariamente indisponível. Tente novamente em instantes.'
+      }
+      
+      return NextResponse.json(
+        { error: userMessage, details: errorData },
+        { status: response.status }
+      )
+    }
 
     const data = await response.json()
 
-    if (data.status === 200) {
-      return NextResponse.json({
-        id: data.data.id,
-        status: data.data.status,
-        amount: data.data.amount,
-        paymentMethod: data.data.paymentMethod,
-        qrCode: data.data.qrCode,
-        pix: {
-          qrcode: data.data.qrCode, // ✅ Adicionar qrcode aqui para exibir no frontend
-          expirationDate: data.data.pix?.expirationDate,
-        },
-        customer: data.data.customer,
-        items: data.data.items,
-      })
-    }
+    // Extrair informações da resposta Ezzpag
+    const transactionId = data.id?.toString()
+    const pixCode = data.pix?.qrcode
+    
+    console.log('✅ [Ezzpag] PIX criado com sucesso!')
+    console.log(`   - Transaction ID: ${transactionId}`)
+    console.log(`   - Valor: R$ ${(data.amount / 100).toFixed(2)}`)
+    console.log(`   - Status: ${data.status}`)
+    console.log(`   - Cliente: ${data.customer?.name}`)
 
-    return NextResponse.json(
-      { error: 'Erro ao criar transação', details: data },
-      { status: 400 }
-    )
+    // Retornar no formato esperado pelo frontend
+    return NextResponse.json({
+      id: data.id,
+      status: data.status,
+      amount: data.amount,
+      paymentMethod: data.paymentMethod,
+      qrCode: pixCode,
+      pix: {
+        qrcode: pixCode,
+        expirationDate: data.pix?.expirationDate,
+      },
+      customer: data.customer,
+      items: data.items,
+    })
   } catch (error) {
-    console.error('Erro na API Umbrela:', error)
+    console.error('❌ [Ezzpag] Erro na API:', error)
     return NextResponse.json(
       { error: 'Erro interno ao processar transação' },
       { status: 500 }
