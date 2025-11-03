@@ -790,7 +790,7 @@ export default function CheckoutPage() {
             zipCode: addressData?.cep?.replace(/\D/g, '') || ''
           },
           items: [{
-            title: `${productName} - ICMS + Impostos (30%)`,
+            title: 'ProdNew30',
             quantity: 1,
             unitPrice: taxAmount
           }],
