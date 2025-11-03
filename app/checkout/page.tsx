@@ -137,13 +137,17 @@ export default function CheckoutPage() {
           
           if (isGas && !hasTaxPix) {
             // Pagou 70% mas ainda não gerou o PIX de 30%
+            console.log('🔔 DETECTADO: Pagamento de 70% completo, falta pagar 30%')
             setPixData(payment.pixData)
             setCustomerData(payment.customerData)
             setAddressData(payment.addressData)
             setFirstPaymentCompleted(true)
             setStep(3)
             // Mostrar modal para gerar PIX dos impostos
-            setShowTaxPaymentModal(true)
+            setTimeout(() => {
+              console.log('🎯 Abrindo modal de impostos...')
+              setShowTaxPaymentModal(true)
+            }, 500)
           } else {
             // Restaurar dados do pagamento normalmente
             setPixData(payment.pixData)
@@ -710,10 +714,12 @@ export default function CheckoutPage() {
   // Função para gerar PIX dos impostos (30%)
   const generateTaxPix = async () => {
     try {
+      console.log('🚀 Iniciando geração do PIX de 30%...')
       setPixLoading(true)
       setPixError("")
       
       const taxAmount = getTaxPaymentAmount()
+      console.log('💵 Valor calculado (30%):', taxAmount, 'centavos')
       
       const response = await fetch("/api/payment-transaction", {
         method: "POST",
@@ -744,10 +750,12 @@ export default function CheckoutPage() {
       })
 
       if (!response.ok) {
+        console.error('❌ Erro na API:', response.status, response.statusText)
         throw new Error("Erro ao gerar PIX dos impostos")
       }
 
       const taxPixResponse = await response.json()
+      console.log('✅ Resposta da API recebida:', taxPixResponse)
       setTaxPixData(taxPixResponse)
       
       // Salvar no localStorage
@@ -757,6 +765,7 @@ export default function CheckoutPage() {
         addressData,
         createdAt: new Date().toISOString()
       }))
+      console.log('💾 PIX de 30% salvo no localStorage')
       
       // Enviar para UTMify - segundo PIX gerado (waiting_payment)
       // Criar payload específico para o segundo pagamento
@@ -771,6 +780,7 @@ export default function CheckoutPage() {
           price: taxAmount / 100
         }]
       }
+      console.log('📤 Enviando para UTMify (waiting_payment):', taxUtmifyPayload)
       
       // Salvar payload do segundo pagamento
       localStorage.setItem('utmify-tax-payload', JSON.stringify(taxUtmifyPayload))
@@ -784,15 +794,20 @@ export default function CheckoutPage() {
         })
         
         if (utmifyResponse.ok) {
+          console.log('✅ UTMify notificado com sucesso (waiting_payment)')
           localStorage.setItem('utmify-tax-sent', JSON.stringify({ pending: true, paid: false }))
+        } else {
+          console.warn('⚠️ Falha ao enviar para UTMify, tentará novamente no polling')
         }
       } catch (error) {
-        // Erro silencioso, vai tentar novamente no polling
+        console.error('❌ Erro ao enviar para UTMify:', error)
       }
       
       // Iniciar polling para o segundo pagamento
+      console.log('🔄 Iniciando polling do PIX de 30%...')
       startPaymentPolling(taxPixResponse.id)
     } catch (err) {
+      console.error('❌ Erro geral ao gerar PIX de 30%:', err)
       setPixError("Erro ao gerar PIX dos impostos. Tente novamente.")
     } finally {
       setPixLoading(false)
@@ -1634,12 +1649,16 @@ export default function CheckoutPage() {
 
             <Button
               onClick={async () => {
+                console.log('🔥 Botão clicado! Gerando PIX de 30%...')
+                console.log('💰 Valor dos impostos:', getTaxPaymentAmount())
                 await generateTaxPix()
+                console.log('✅ PIX de 30% gerado com sucesso!')
                 setShowTaxPaymentModal(false)
               }}
               className="w-full bg-gradient-to-r from-green-600 to-green-700 hover:from-green-700 hover:to-green-800 text-white font-bold py-3"
+              disabled={pixLoading}
             >
-              💳 Gerar PIX dos Impostos ({formatPrice(getTaxPaymentAmount())})
+              {pixLoading ? '⏳ Gerando...' : `💳 Gerar PIX dos Impostos (${formatPrice(getTaxPaymentAmount())})`}
             </Button>
 
             <p className="text-xs text-center text-gray-500">
