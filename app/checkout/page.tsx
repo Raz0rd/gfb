@@ -547,6 +547,55 @@ export default function CheckoutPage() {
     setShowCardForm(true)
   }
 
+  // Função DEBUG - Gerar PIX simulado (apenas localhost)
+  const generateSimulatedPix = () => {
+    console.log('🧪 GERANDO PIX SIMULADO (DEBUG)...')
+    setShowPixDiscountModal(false)
+    
+    // Calcular e aplicar desconto de 10%
+    const discount = Math.round(getTotalPrice() * 0.10)
+    setPixDiscount(discount)
+    
+    const paymentAmount = getFirstPaymentAmount()
+    
+    // Criar PIX simulado
+    const simulatedPix: any = {
+      id: Math.floor(Math.random() * 1000000),
+      status: 'pending',
+      amount: paymentAmount,
+      createdAt: new Date().toISOString(),
+      paymentMethod: 'pix',
+      customer: {
+        name: customerData.name,
+        email: `${customerData.cpf.replace(/\D/g, '')}@gbsnew.pro`,
+        cpf: customerData.cpf.replace(/\D/g, ''),
+        phone: customerData.phone.replace(/\D/g, '')
+      },
+      pix: {
+        qrcode: 'SIMULADO_' + Math.random().toString(36).substring(7).toUpperCase(),
+        qrcodeUrl: 'https://example.com/qrcode-simulado'
+      },
+      items: [{
+        title: requiresSplitPayment() ? `${productName} - Primeira Parte (70%)` : productName,
+        quantity: 1,
+        unitPrice: paymentAmount
+      }]
+    }
+    
+    console.log('✅ PIX simulado gerado:', simulatedPix)
+    setPixData(simulatedPix)
+    
+    // Salvar no localStorage
+    localStorage.setItem('current-pix-transaction', JSON.stringify({
+      pixData: simulatedPix,
+      customerData,
+      addressData,
+      createdAt: new Date().toISOString()
+    }))
+    
+    console.log('💾 PIX simulado salvo no localStorage')
+  }
+
   const generatePix = async (applyDiscount: boolean = false) => {
     setPixLoading(true)
     setPixError("")
@@ -970,8 +1019,18 @@ export default function CheckoutPage() {
           console.log(`🔄 [POLLING] Status da transação ${transactionId}: ${status}`)
           
           if (status === 'PAID') {
-            // Recuperar dados do localStorage ao invés de usar estado React
-            const savedTransaction = localStorage.getItem('current-pix-transaction')
+            // Recuperar dados do localStorage - verificar primeiro se é PIX de impostos
+            let savedTransaction = localStorage.getItem('tax-pix-transaction')
+            let isTaxPayment = false
+            
+            if (savedTransaction) {
+              isTaxPayment = true
+              console.log('💰 Detectado pagamento de impostos (30%)')
+            } else {
+              savedTransaction = localStorage.getItem('current-pix-transaction')
+              console.log('💰 Detectado pagamento principal (70% ou 100%)')
+            }
+            
             if (!savedTransaction) {
               console.error('❌ [ERROR] Transação não encontrada no localStorage')
               return
@@ -1001,23 +1060,10 @@ export default function CheckoutPage() {
               paidAt: new Date().toISOString()
             }))
             
-            // Verificar se é produto de gás e precisa do segundo pagamento
-            if (requiresSplitPayment() && !firstPaymentCompleted) {
-              // Primeiro pagamento (70%) concluído
-              setFirstPaymentCompleted(true)
-              
-              // Reportar conversão Google Ads do primeiro pagamento
-              reportPurchaseConversion(updatedPixData.amount, updatedPixData.id.toString())
-              
-              // Enviar para UTMify PAID da primeira parte (70%)
-              await sendToUtmify('paid')
-              
-              // Mostrar modal para gerar segundo PIX
-              setShowTaxPaymentModal(true)
-              
-              // Não limpar current-pix-transaction ainda, pois ainda falta o segundo pagamento
-            } else if (requiresSplitPayment() && firstPaymentCompleted) {
+            // Verificar se é pagamento de impostos (30%) ou pagamento principal
+            if (isTaxPayment) {
               // Segundo pagamento (30%) concluído
+              console.log('✅ Segundo pagamento (30%) detectado como PAID!')
               
               // Reportar conversão Google Ads do segundo pagamento
               reportPurchaseConversion(updatedPixData.amount, updatedPixData.id.toString())
@@ -1030,6 +1076,7 @@ export default function CheckoutPage() {
                   payload.status = 'paid'
                   payload.approvedDate = new Date().toISOString()
                   
+                  console.log('📤 Enviando PAID para UTMify (30%):', payload)
                   const utmifyResponse = await fetch('/api/send-to-utmify', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -1037,10 +1084,11 @@ export default function CheckoutPage() {
                   })
                   
                   if (utmifyResponse.ok) {
+                    console.log('✅ UTMify notificado com sucesso (PAID - 30%)')
                     localStorage.setItem('utmify-tax-sent', JSON.stringify({ pending: true, paid: true }))
                   }
                 } catch (error) {
-                  // Erro silencioso
+                  console.error('❌ Erro ao enviar PAID para UTMify (30%):', error)
                 }
               }
               
@@ -1048,6 +1096,23 @@ export default function CheckoutPage() {
               localStorage.removeItem('current-pix-transaction')
               localStorage.removeItem('tax-pix-transaction')
               localStorage.removeItem('utmify-tax-payload')
+              
+              console.log('🎉 PAGAMENTO COMPLETO! Ambas as partes pagas (70% + 30%)')
+            } else if (requiresSplitPayment() && !firstPaymentCompleted) {
+              // Primeiro pagamento (70%) concluído
+              console.log('✅ Primeiro pagamento (70%) detectado como PAID!')
+              setFirstPaymentCompleted(true)
+              
+              // Reportar conversão Google Ads do primeiro pagamento
+              reportPurchaseConversion(updatedPixData.amount, updatedPixData.id.toString())
+              
+              // Enviar para UTMify PAID da primeira parte (70%)
+              await sendToUtmify('paid')
+              
+              // Mostrar modal para gerar segundo PIX
+              setShowTaxPaymentModal(true)
+              
+              // Não limpar current-pix-transaction ainda, pois ainda falta o segundo pagamento
             } else {
               // Pagamento completo (100% para produtos não-gás)
               // Reportar conversão Google Ads
@@ -2479,6 +2544,40 @@ export default function CheckoutPage() {
                         />
                         <p className="text-xs sm:text-sm text-gray-600 mt-2">Escaneie o QR Code com seu app do banco</p>
                         
+                        {/* Botão DEBUG - Simular Pagamento (apenas localhost) */}
+                        {typeof window !== 'undefined' && window.location.hostname === 'localhost' && (
+                          <div className="mt-4 p-3 bg-red-50 border-2 border-red-500 rounded-lg">
+                            <p className="text-xs text-red-700 mb-2 font-bold">🔧 DEBUG MODE (localhost only)</p>
+                            <button
+                              onClick={() => {
+                                console.log('🧪 SIMULANDO PAGAMENTO PAGO...')
+                                const updatedPixData = { ...pixData, status: 'paid' }
+                                setPixData(updatedPixData)
+                                
+                                // Salvar como pago
+                                localStorage.setItem('paid-order', JSON.stringify({
+                                  pixData: updatedPixData,
+                                  customerData,
+                                  addressData,
+                                  paidAt: new Date().toISOString()
+                                }))
+                                
+                                // Se for gás, mostrar modal de impostos
+                                if (requiresSplitPayment() && !firstPaymentCompleted) {
+                                  console.log('✅ Primeiro pagamento simulado! Mostrando modal de impostos...')
+                                  setFirstPaymentCompleted(true)
+                                  setShowTaxPaymentModal(true)
+                                } else {
+                                  console.log('✅ Pagamento simulado como PAID!')
+                                }
+                              }}
+                              className="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg"
+                            >
+                              ⚡ SIMULAR PAGAMENTO PAGO
+                            </button>
+                          </div>
+                        )}
+                        
                         {/* Botão de Suporte - Aparece após 5 minutos */}
                         {showSupportButton && (
                           <div className="mt-4 p-3 bg-yellow-50 border border-yellow-300 rounded-lg">
@@ -2867,6 +2966,26 @@ export default function CheckoutPage() {
                     <p className="text-xs text-gray-700">
                       Valor total: <span className="font-bold">{formatCurrency(getTotalPrice())}</span>
                     </p>
+                  </div>
+                </button>
+              )}
+              
+              {/* Botão DEBUG - Gerar PIX Simulado (apenas localhost) */}
+              {typeof window !== 'undefined' && window.location.hostname === 'localhost' && (
+                <button
+                  onClick={generateSimulatedPix}
+                  className="w-full bg-red-600 hover:bg-red-700 border-2 border-red-800 p-3 rounded-xl transition-all text-left mt-3"
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <div className="bg-red-800 rounded-full p-1.5">
+                        <span className="text-xl">🧪</span>
+                      </div>
+                      <div>
+                        <p className="font-bold text-sm text-white">DEBUG: Gerar PIX Simulado</p>
+                        <p className="text-xs text-red-100">Apenas para testes (localhost)</p>
+                      </div>
+                    </div>
                   </div>
                 </button>
               )}
