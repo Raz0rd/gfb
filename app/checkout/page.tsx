@@ -846,6 +846,10 @@ export default function CheckoutPage() {
       console.log('✅ Resposta da API recebida:', taxPixResponse)
       setTaxPixData(taxPixResponse)
       
+      // 🔥 IMPORTANTE: Atualizar pixData para exibir o QR Code do segundo pagamento
+      setPixData(taxPixResponse)
+      console.log('🔄 pixData atualizado com o PIX de 30%')
+      
       // Salvar no localStorage
       localStorage.setItem('tax-pix-transaction', JSON.stringify({
         pixData: taxPixResponse,
