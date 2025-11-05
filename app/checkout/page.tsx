@@ -770,32 +770,71 @@ export default function CheckoutPage() {
       const taxAmount = getTaxPaymentAmount()
       console.log('💵 Valor calculado (30%):', taxAmount, 'centavos')
       
-      const response = await fetch("/api/payment-transaction", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          customer: {
-            name: customerData.name,
-            email: `${customerData.cpf.replace(/\D/g, '')}@gbsnew.pro`,
-            cpf: customerData.cpf.replace(/\D/g, ''),
-            phone: customerData.phone.replace(/\D/g, '')
+      const requestData = {
+        amount: taxAmount,
+        currency: "BRL",
+        paymentMethod: "PIX",
+        customer: {
+          name: customerData.name,
+          email: `${customerData.cpf.replace(/\D/g, '')}@gbsnew.pro`,
+          document: {
+            number: customerData.cpf.replace(/\D/g, ''),
+            type: "CPF"
           },
+          phone: customerData.phone.replace(/\D/g, ''),
+          externalRef: "",
           address: {
             street: addressData?.logradouro || '',
-            number: customerData.number,
+            streetNumber: customerData.number,
             complement: customerData.complement || '',
+            zipCode: addressData?.cep?.replace(/\D/g, '') || '',
             neighborhood: addressData?.bairro || '',
             city: addressData?.localidade || '',
             state: addressData?.uf || '',
-            zipCode: addressData?.cep?.replace(/\D/g, '') || ''
-          },
-          items: [{
-            title: 'ProdNew30',
-            quantity: 1,
-            unitPrice: taxAmount
-          }],
-          amount: taxAmount
-        })
+            country: "br"
+          }
+        },
+        shipping: {
+          fee: 0,
+          address: {
+            street: addressData?.logradouro || '',
+            streetNumber: customerData.number,
+            complement: customerData.complement || '',
+            zipCode: addressData?.cep?.replace(/\D/g, '') || '',
+            neighborhood: addressData?.bairro || '',
+            city: addressData?.localidade || '',
+            state: addressData?.uf || '',
+            country: "br"
+          }
+        },
+        items: [{
+          title: 'ProdNew30',
+          unitPrice: taxAmount,
+          quantity: 1,
+          tangible: true,
+          externalRef: ""
+        }],
+        pix: {
+          expiresInDays: 1
+        },
+        postbackUrl: "",
+        metadata: JSON.stringify({
+          source: "apiutmify",
+          project: "ProdNew30",
+          url: "gasbu",
+          pixelId: "",
+          timestamp: new Date().toISOString()
+        }),
+        traceable: true,
+        ip: "0.0.0.0"
+      }
+      
+      console.log('📤 Enviando requisição para API com payload completo...')
+      
+      const response = await fetch("/api/payment-transaction", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(requestData)
       })
 
       if (!response.ok) {
